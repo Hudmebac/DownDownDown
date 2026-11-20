@@ -1,5 +1,9 @@
 import { CHARACTERS, TRAILS, MISSION_POOL, ECONOMY, biomeIndexAt } from './config.js';
 
+const MISSION_ACTIVE = 3;
+// Cleared missions sit out this many draws before they can come back around.
+const MISSION_COOLDOWN = 45;
+
 export const freshProfileData = () => ({
   name: '',
   best: 0,
@@ -13,6 +17,10 @@ export const freshProfileData = () => ({
   trail: 'ember',
   settings: { music: 0, sfx: 0.7, shake: 1, reduce: 0, audioVersion: 2 },
   missions: [],
+  missionDeck: [],
+  missionCooldown: [],
+  missionsDone: 0,
+  bonusClaimed: 0,
   seenHowTo: false,
 });
 
@@ -89,26 +97,66 @@ export class Progress {
     return true;
   }
 
+  bonusInfo() {
+    const perCache = ECONOMY.missionsPerCache;
+    const total = this.data.missionsDone || 0;
+    const claimed = this.data.bonusClaimed || 0;
+    const unlocked = Math.floor(total / perCache);
+    return {
+      perCache,
+      total,
+      claimed,
+      unlocked,
+      claimable: Math.max(0, unlocked - claimed),
+      into: total % perCache,
+      toNext: perCache - (total % perCache),
+      value: ECONOMY.bonusBase + claimed * ECONOMY.bonusStep,
+    };
+  }
+
+  claimBonus() {
+    const info = this.bonusInfo();
+    if (info.claimable <= 0) return 0;
+    this.data.shards += info.value;
+    this.data.bonusClaimed = (this.data.bonusClaimed || 0) + 1;
+    this.save();
+    return info.value;
+  }
+
   ensureMissions() {
-    const active = this.data.missions.filter((m) => !m.done);
-    if (active.length >= 3) return;
-    const used = new Set(this.data.missions.map((m) => m.id));
-    const pool = MISSION_POOL.filter((m) => !used.has(m.id));
-    if (pool.length < 3) {
-      this.data.missions = [];
-      const freshPool = [...MISSION_POOL];
-      while (this.data.missions.length < 3 && freshPool.length) {
-        const pickIdx = Math.floor(Math.random() * freshPool.length);
-        const def = freshPool.splice(pickIdx, 1)[0];
-        this.data.missions.push(this._makeMission(def));
-      }
-    } else {
-      while (this.data.missions.filter((m) => !m.done).length < 3 && pool.length) {
-        const def = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-        this.data.missions.push(this._makeMission(def));
-      }
+    if (!Array.isArray(this.data.missions)) this.data.missions = [];
+    if (!Array.isArray(this.data.missionDeck)) this.data.missionDeck = [];
+    if (!Array.isArray(this.data.missionCooldown)) this.data.missionCooldown = [];
+    this.data.missions = this.data.missions.filter((m) => !m.done);
+    let attempts = 0;
+    while (this.data.missions.length < MISSION_ACTIVE && attempts < MISSION_POOL.length) {
+      attempts += 1;
+      const def = this._nextMission();
+      if (!def) break;
+      if (this.data.missions.some((m) => m.id === def.id)) continue;
+      this.data.missions.push(this._makeMission(def));
     }
     this.save();
+  }
+
+  _nextMission() {
+    const blocked = new Set(this.data.missionCooldown);
+    for (let guard = 0; guard < MISSION_POOL.length + 2; guard++) {
+      if (!this.data.missionDeck.length) {
+        const ids = MISSION_POOL.map((m) => m.id).filter((id) => !blocked.has(id));
+        if (!ids.length) return null;
+        for (let i = ids.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [ids[i], ids[j]] = [ids[j], ids[i]];
+        }
+        this.data.missionDeck = ids;
+      }
+      const id = this.data.missionDeck.pop();
+      if (blocked.has(id)) continue;
+      const def = MISSION_POOL.find((m) => m.id === id);
+      if (def) return def;
+    }
+    return null;
   }
 
   _makeMission(def) {
@@ -125,6 +173,9 @@ export class Progress {
       if (m.prog >= m.goal) {
         m.done = true;
         this.data.shards += m.reward;
+        this.data.missionsDone = (this.data.missionsDone || 0) + 1;
+        this.data.missionCooldown.push(m.id);
+        while (this.data.missionCooldown.length > MISSION_COOLDOWN) this.data.missionCooldown.shift();
         completed.push(m);
       }
     }

@@ -36,6 +36,10 @@ function mergeData(raw) {
   if (!Array.isArray(data.unlocks) || !data.unlocks.length) data.unlocks = base.unlocks;
   if (!Array.isArray(data.trails) || !data.trails.length) data.trails = base.trails;
   if (!Array.isArray(data.missions)) data.missions = [];
+  if (!Array.isArray(data.missionDeck)) data.missionDeck = [];
+  if (!Array.isArray(data.missionCooldown)) data.missionCooldown = [];
+  data.missionsDone = Number(data.missionsDone) || 0;
+  data.bonusClaimed = Number(data.bonusClaimed) || 0;
   return data;
 }
 

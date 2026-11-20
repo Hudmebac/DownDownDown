@@ -48,6 +48,9 @@ export const ECONOMY = {
   scoreDiv: 150,
   perfectEach: 3,
   biomeEach: 8,
+  missionsPerCache: 3,
+  bonusBase: 150,
+  bonusStep: 100,
 };
 
 // One full pass through all eight biomes. Finish it and the next descent
@@ -231,42 +234,256 @@ export function biomeIndexAt(depth) {
 
 export const CHARACTERS = [
   {
-    id: 'pip', name: 'Pip', cost: 0, hat: 'tuft', tag: 'BALANCED',
+    id: 'pip', name: 'Pip', hat: 'tuft', tag: 'BALANCED',
     desc: 'Friendly and sure-footed.',
     color: '#ff7a6b', accent: '#ffd166', trail: '#ffd166',
     stats: { speed: 330, jump: 480, gravity: 1700, air: 1 },
   },
   {
-    id: 'bolt', name: 'Bolt', cost: 300, hat: 'spike', tag: 'FAST & FLOATY',
-    desc: 'Fast, floaty, commits hard.',
+    id: 'bolt', name: 'Bolt', hat: 'spike', tag: 'FAST & FLOATY',
+    desc: 'Fast, floaty, all-in.',
     color: '#4cc9f0', accent: '#f72585', trail: '#4cc9f0',
     stats: { speed: 382, jump: 490, gravity: 1780, air: 1 },
   },
   {
-    id: 'nix', name: 'Nix', cost: 480, hat: 'horns', tag: 'DOUBLE JUMP',
-    desc: 'Heavy jumper, extra air hop.',
+    id: 'nix', name: 'Nix', hat: 'horns', tag: 'DOUBLE JUMP',
+    desc: 'Heavy jumper, extra hop.',
     color: '#9b5de5', accent: '#f15bb5', trail: '#c77dff',
     stats: { speed: 306, jump: 540, gravity: 1580, air: 2 },
   },
   {
-    id: 'wisp', name: 'Wisp', cost: 700, hat: 'antenna', tag: 'GLIDE',
+    id: 'wisp', name: 'Wisp', hat: 'antenna', tag: 'GLIDE',
     desc: 'Glides on a held jump.',
     color: '#8ae68a', accent: '#fdffd2', trail: '#8ae68a',
     stats: { speed: 322, jump: 500, gravity: 1480, air: 1, glide: true },
   },
   {
-    id: 'nova', name: 'Nova', cost: 1000, hat: 'crown', tag: 'ALL-ROUNDER',
+    id: 'nova', name: 'Nova', hat: 'crown', tag: 'ALL-ROUNDER',
     desc: 'No real weaknesses.',
     color: '#ffd166', accent: '#ff7a6b', trail: '#ffd166',
     stats: { speed: 350, jump: 520, gravity: 1660, air: 2 },
   },
   {
-    id: 'umbra', name: 'Umbra', cost: 1500, hat: 'hood', tag: 'FAST FALLER',
-    desc: 'Quick, heavy, hard to catch.',
+    id: 'umbra', name: 'Umbra', hat: 'hood', tag: 'FAST FALLER',
+    desc: 'Quick, heavy, elusive.',
     color: '#2f3350', accent: '#ef476f', trail: '#ef476f',
     stats: { speed: 372, jump: 536, gravity: 1620, air: 2 },
   },
+
+  // Heroes and villains cost more than the original crew, and each rung of
+  // the ladder is pricier than the last.
+  {
+    id: 'mario', name: 'Mario', group: 'heroes', look: 'plumber', initial: 'M',
+    tag: 'ALL-ROUNDER', desc: 'Jumps first, asks later.',
+    color: '#e23b2e', accent: '#e23b2e', suit: '#2f5fd0', trail: '#e23b2e',
+    stats: { speed: 340, jump: 512, gravity: 1680, air: 1 },
+  },
+  {
+    id: 'luigi', name: 'Luigi', group: 'heroes', look: 'plumber', initial: 'L',
+    tag: 'FLOATY',    desc: 'Tall, cautious, floaty.',
+    color: '#4fbf4a', accent: '#4fbf4a', suit: '#2f5fd0', trail: '#4fbf4a',
+    stats: { speed: 362, jump: 540, gravity: 1600, air: 1 },
+  },
+  {
+    id: 'peach', name: 'Peach', group: 'heroes', look: 'peach',
+    tag: 'GLIDE', desc: 'Drifts down on a held jump.',
+    color: '#ff8fc7', accent: '#ffe08a', trail: '#ff9ecd',
+    stats: { speed: 320, jump: 520, gravity: 1560, air: 2, glide: true },
+  },
+  {
+    id: 'yoshi', name: 'Yoshi', group: 'heroes', look: 'dino',
+    tag: 'FLUTTER JUMP', desc: 'A second hop in mid-air.',
+    color: '#5cc84a', accent: '#5cc84a', trail: '#5cc84a',
+    stats: { speed: 352, jump: 512, gravity: 1620, air: 2 },
+  },
+  {
+    id: 'toadette', name: 'Toadette', group: 'heroes', look: 'toad',
+    tag: 'SPRY', desc: 'Tiny, quick, hard to hit.',
+    color: '#ff87b5', accent: '#ffd166', suit: '#fdf3f7', trail: '#ff87b5',
+    stats: { speed: 372, jump: 488, gravity: 1700, air: 1 },
+  },
+  {
+    id: 'yellowtoad', name: 'Yellow Toad', group: 'heroes', look: 'toad',
+    tag: 'STEADY', desc: 'Plods on no matter what.',
+    color: '#ffd94a', accent: '#ffffff', suit: '#3b6fd4', trail: '#ffd94a',
+    stats: { speed: 344, jump: 496, gravity: 1660, air: 2 },
+  },
+  {
+    id: 'wario', name: 'Wario', group: 'heroes', look: 'plumber', initial: 'W',
+    tag: 'HEAVY HITTER',    desc: 'Slow start, huge jump.',
+    color: '#f4c542', accent: '#f4c542', suit: '#7b4bd8', trail: '#f4c542',
+    stats: { speed: 296, jump: 552, gravity: 1580, air: 2 },
+  },
+
+  {
+    id: 'goomba', name: 'Goomba', group: 'enemies', look: 'goomba',
+    tag: 'STUBBORN', desc: 'Angry, and always walking.',
+    color: '#a4642f', accent: '#7a4620', trail: '#c98a4b',
+    stats: { speed: 300, jump: 474, gravity: 1740, air: 1 },
+  },
+  {
+    id: 'piranha', name: 'Piranha Plant', group: 'enemies', look: 'plant',
+    tag: 'SNAP', desc: 'All teeth, no patience.',
+    color: '#e63946', accent: '#ffffff', trail: '#e63946',
+    stats: { speed: 318, jump: 492, gravity: 1660, air: 1 },
+  },
+  {
+    id: 'drybones', name: 'Dry Bones', group: 'enemies', look: 'bones',
+    tag: 'RATTLES',    desc: 'Falls apart, keeps going.',
+    color: '#efe8d6', accent: '#8fe08a', trail: '#cfead0',
+    stats: { speed: 352, jump: 486, gravity: 1650, air: 2 },
+  },
+  {
+    id: 'thwomp', name: 'Thwomp', group: 'enemies', look: 'rock',
+    tag: 'DEAD WEIGHT',    desc: 'Drops like a cross anvil.',
+    color: '#8f98aa', accent: '#5d677a', trail: '#8f98aa',
+    stats: { speed: 288, jump: 566, gravity: 1840, air: 1 },
+  },
+  {
+    id: 'diddy', name: 'Diddy Kong', group: 'enemies', look: 'ape',
+    tag: 'SPEEDY',    desc: 'Small, fast, full of beans.',
+    color: '#8a5a2b', accent: '#e23b2e', trail: '#e23b2e',
+    stats: { speed: 392, jump: 516, gravity: 1710, air: 2 },
+  },
+  {
+    id: 'donkey', name: 'Donkey Kong', group: 'enemies', look: 'ape',
+    tag: 'POWERHOUSE', desc: 'A whole barrel of momentum.',
+    color: '#7a4a24', accent: '#e23b2e', trail: '#c98a4b',
+    stats: { speed: 306, jump: 558, gravity: 1780, air: 2 },
+  },  {
+    id: 'bowser', name: 'Bowser', group: 'enemies', look: 'turtle',
+    tag: 'FINAL BOSS', desc: 'The descent has a king.',
+    color: '#3f8f3a', accent: '#f0a33c', trail: '#f0a33c',
+    stats: { speed: 300, jump: 548, gravity: 1760, air: 2 },
+  },
+
+  // Themed collections pulled from the deeper biomes. They sit above the
+  // heroes and villains on the price ladder.
+  {
+    id: 'angler', name: 'Angler', group: 'reef', look: 'fish',
+    tag: 'LURE', desc: 'Glows in the deep dark.',
+    color: '#3f6fa8', accent: '#8ef0d0', trail: '#8ef0d0',
+    stats: { speed: 324, jump: 496, gravity: 1620, air: 2 },
+  },
+  {
+    id: 'jelly', name: 'Jelly', group: 'reef', look: 'jelly',
+    tag: 'DRIFTER', desc: 'Floats wherever it likes.',
+    color: '#c77dff', accent: '#ffb3f0', trail: '#e0b3ff',
+    stats: { speed: 316, jump: 502, gravity: 1500, air: 1, glide: true },
+  },
+  {
+    id: 'crab', name: 'Crab', group: 'reef', look: 'crab',
+    tag: 'SIDEWAYS', desc: 'Pinches, then walks off.',
+    color: '#e2452f', accent: '#ffd166', trail: '#ff7a5c',
+    stats: { speed: 336, jump: 486, gravity: 1740, air: 1 },
+  },
+  {
+    id: 'squid', name: 'Squid', group: 'reef', look: 'squid',
+    tag: 'INKY', desc: 'Leaves a cloud behind.',
+    color: '#7b4bd8', accent: '#b9a3ff', trail: '#b9a3ff',
+    stats: { speed: 348, jump: 500, gravity: 1660, air: 2 },
+  },
+  {
+    id: 'seahorse', name: 'Seahorse', group: 'reef', look: 'seahorse',
+    tag: 'TINY', desc: 'Small, upright, unhurried.',
+    color: '#ffb347', accent: '#6ee7ff', trail: '#ffb347',
+    stats: { speed: 306, jump: 530, gravity: 1580, air: 2 },
+  },
+  {
+    id: 'coral', name: 'Coral', group: 'reef', look: 'coral',
+    tag: 'BLOOMS', desc: 'Slow but hard to break.',
+    color: '#ff7a9c', accent: '#ffd166', trail: '#ff7a9c',
+    stats: { speed: 292, jump: 560, gravity: 1800, air: 2 },
+  },
+
+  {
+    id: 'pulsar', name: 'Pulsar', group: 'void', look: 'star',
+    tag: 'BLINKS', desc: 'Beats like a second heart.',
+    color: '#8fa2ff', accent: '#e0e6ff', trail: '#8fa2ff',
+    stats: { speed: 360, jump: 520, gravity: 1680, air: 2 },
+  },
+  {
+    id: 'watcher', name: 'Watcher', group: 'void', look: 'eye',
+    tag: 'STARES', desc: 'It has seen you already.',
+    color: '#5eead4', accent: '#8fa2ff', trail: '#5eead4',
+    stats: { speed: 300, jump: 506, gravity: 1640, air: 2 },
+  },
+  {
+    id: 'wraith', name: 'Wraith', group: 'void', look: 'wraith',
+    tag: 'DRIFTS', desc: 'Quiet, cold, and patient.',
+    color: '#3a3f5c', accent: '#8fa2ff', trail: '#8fa2ff',
+    stats: { speed: 342, jump: 514, gravity: 1580, air: 2 },
+  },
+  {
+    id: 'moonling', name: 'Moonling', group: 'void', look: 'moon',
+    tag: 'CRESCENT', desc: 'Half here, half elsewhere.',
+    color: '#f0ead6', accent: '#8fa2ff', trail: '#f0ead6',
+    stats: { speed: 330, jump: 524, gravity: 1540, air: 2, glide: true },
+  },
+  {
+    id: 'meteor', name: 'Meteor', group: 'void', look: 'meteor',
+    tag: 'BURNS', desc: 'Arrives already on fire.',
+    color: '#8a4a2a', accent: '#ffb347', trail: '#ffb347',
+    stats: { speed: 290, jump: 566, gravity: 1860, air: 1 },
+  },
+  {
+    id: 'rift', name: 'Rift', group: 'void', look: 'glitch',
+    tag: 'GLITCHES', desc: 'Flickers out of alignment.',
+    color: '#2f3350', accent: '#5eead4', trail: '#5eead4',
+    stats: { speed: 392, jump: 508, gravity: 1720, air: 2 },
+  },
+
+  // Halloween set. Top of the price ladder.
+  {
+    id: 'pumpkin', name: 'Pumpkin', group: 'spooky', look: 'pumpkin',
+    tag: 'CARVED', desc: 'Grins through the dark.',
+    color: '#ff8a3d', accent: '#5fbf4a', trail: '#ff9a3d',
+    stats: { speed: 300, jump: 486, gravity: 1760, air: 1 },
+  },
+  {
+    id: 'ghost', name: 'Ghost', group: 'spooky', look: 'ghost',
+    tag: 'SHEET', desc: 'Polite but see-through.',
+    color: '#eef4ff', accent: '#8fa2ff', trail: '#cfe0ff',
+    stats: { speed: 322, jump: 514, gravity: 1520, air: 2, glide: true },
+  },
+  {
+    id: 'bat', name: 'Bat', group: 'spooky', look: 'bat',
+    tag: 'FLUTTER', desc: 'Hangs around, then goes.',
+    color: '#9b5de5', accent: '#ffd166', trail: '#9b5de5',
+    stats: { speed: 372, jump: 508, gravity: 1660, air: 2 },
+  },
+  {
+    id: 'witch', name: 'Witch', group: 'spooky', look: 'witch',
+    tag: 'BREWS', desc: 'Cackles on the way down.',
+    color: '#7b4bd8', accent: '#8fe08a', trail: '#b9a3ff',
+    stats: { speed: 334, jump: 526, gravity: 1600, air: 2, glide: true },
+  },
+  {
+    id: 'vampire', name: 'Vampire', group: 'spooky', look: 'vampire',
+    tag: 'BITES', desc: 'Prefers the night shift.',
+    color: '#2f3350', accent: '#e2452f', trail: '#e2452f',
+    stats: { speed: 360, jump: 512, gravity: 1700, air: 2 },
+  },
+  {
+    id: 'mummy', name: 'Mummy', group: 'spooky', look: 'mummy',
+    tag: 'WRAPPED', desc: 'Slow, wrapped, unstoppable.',
+    color: '#e8e0c8', accent: '#8a7f6a', trail: '#e8e0c8',
+    stats: { speed: 292, jump: 552, gravity: 1800, air: 1 },
+  },
 ];
+
+// Shop pricing rule: every collection opens at 600 shards, and each next
+// character in the same collection costs more than the one before it.
+const HANGAR_STEPS = { fallers: 250, heroes: 400, enemies: 550, reef: 700, void: 900, spooky: 1100 };
+{
+  const seen = {};
+  for (const c of CHARACTERS) {
+    const group = c.group || 'fallers';
+    const index = seen[group] || 0;
+    seen[group] = index + 1;
+    c.cost = 600 + index * (HANGAR_STEPS[group] || 300);
+  }
+}
 
 export const TRAILS = [
   { id: 'ember', name: 'Ember', cost: 0, color: '#ffd166', style: 'dot', desc: 'Warm sparks that follow you down.' },
@@ -276,23 +493,105 @@ export const TRAILS = [
   { id: 'void', name: 'Void', cost: 700, color: '#c77dff', style: 'streak', desc: 'The dark itself, trailing behind.' },
 ];
 
-export const MISSION_POOL = [
-  { id: 'gems40', text: 'Collect 40 gems in one run', ev: 'runGems', mode: 'max', goal: 40, reward: 40 },
-  { id: 'depth300', text: 'Reach 300m deep', ev: 'runDepth', mode: 'max', goal: 300, reward: 60 },
-  { id: 'gems150', text: 'Collect 150 gems in total', ev: 'gems', mode: 'add', goal: 150, reward: 50 },
-  { id: 'score2500', text: 'Score 2,500 in one run', ev: 'runScore', mode: 'max', goal: 2500, reward: 55 },
-  { id: 'dash15', text: 'Dash 15 times', ev: 'dashes', mode: 'add', goal: 15, reward: 35 },
-  { id: 'perfect12', text: 'Stick 12 perfect landings in one run', ev: 'runPerfect', mode: 'max', goal: 12, reward: 45 },
-  { id: 'power6', text: 'Grab 6 power-ups', ev: 'powerups', mode: 'add', goal: 6, reward: 40 },
-  { id: 'runs3', text: 'Finish 3 runs', ev: 'runs', mode: 'add', goal: 3, reward: 35 },
-  { id: 'depth800', text: 'Reach 800m deep', ev: 'runDepth', mode: 'max', goal: 800, reward: 90 },
-  { id: 'combo8', text: 'Reach a x8 combo', ev: 'runCombo', mode: 'max', goal: 8, reward: 65 },
-  { id: 'gems500', text: 'Collect 500 gems in total', ev: 'gems', mode: 'add', goal: 500, reward: 110 },
-  { id: 'biomes3', text: 'Reach Glass Reef in one run', ev: 'runDepth', mode: 'max', goal: 550, reward: 70 },
-  { id: 'depth1500', text: 'Reach 1500m deep', ev: 'runDepth', mode: 'max', goal: 1500, reward: 120 },
-  { id: 'depth2200', text: 'Reach Last Light at 2200m', ev: 'runDepth', mode: 'max', goal: 2200, reward: 170 },
-  { id: 'depth3800', text: 'Finish a full descent (3800m)', ev: 'runDepth', mode: 'max', goal: 3800, reward: 260 },
+// Mission catalogue. Ten objective families, each with its own ladder of
+// goals, for 250 distinct cards. The board only ever shows three at a time and
+// cleared cards sit in a cooldown before the rest of the catalogue cycles back.
+const groupDigits = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+const MISSION_KINDS = [
+  {
+    ev: 'runDepth',
+    mode: 'max',
+    goals: [
+      100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000,
+      1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2200, 2400, 2600, 2800, 3000, 3200,
+      3400, 3600, 3800, 4200, 4600,
+    ],
+    text: (g) => `Reach ${groupDigits(g)}m deep in one run`,
+    reward: (g) => 20 + Math.round(g / 12),
+  },
+  {
+    ev: 'gems',
+    mode: 'add',
+    goals: [
+      50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000, 2400,
+      2800, 3200, 3600, 4000, 4500, 5000, 6000, 7000, 8000, 9000, 10000,
+    ],
+    text: (g) => `Collect ${groupDigits(g)} gems in total`,
+    reward: (g) => 20 + Math.round(g / 25),
+  },
+  {
+    ev: 'runGems',
+    mode: 'max',
+    goals: [10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 110, 120, 140, 160, 180, 200, 225, 250, 275, 300, 350],
+    text: (g) => `Collect ${g} gems in one run`,
+    reward: (g) => 25 + Math.round(g / 4),
+  },
+  {
+    ev: 'runScore',
+    mode: 'max',
+    goals: [
+      800, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3500, 4000, 4500, 5000, 5500, 6000,
+      6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000, 11000, 12000, 13000, 14000, 15000, 16000, 18000,
+      20000, 22500, 25000, 30000,
+    ],
+    text: (g) => `Score ${groupDigits(g)} in one run`,
+    reward: (g) => 20 + Math.round(g / 150),
+  },
+  {
+    ev: 'runCombo',
+    mode: 'max',
+    goals: [4, 5, 6, 7, 8, 9],
+    text: (g) => `Reach a x${g} combo`,
+    reward: (g) => 30 + g * 8,
+  },
+  {
+    ev: 'runPerfect',
+    mode: 'max',
+    goals: [3, 5, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 120, 140, 160],
+    text: (g) => `Stick ${g} perfect landings in one run`,
+    reward: (g) => 20 + g * 3,
+  },
+  {
+    ev: 'dashes',
+    mode: 'add',
+    goals: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 225, 250, 300, 350, 400],
+    text: (g) => `Dash ${g} times`,
+    reward: (g) => 15 + Math.round(g * 1.2),
+  },
+  {
+    ev: 'powerups',
+    mode: 'add',
+    goals: [3, 5, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 120, 140, 160],
+    text: (g) => `Grab ${g} power-ups`,
+    reward: (g) => 20 + g * 4,
+  },
+  {
+    ev: 'runs',
+    mode: 'add',
+    goals: [2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 200],
+    text: (g) => `Finish ${g} runs`,
+    reward: (g) => 20 + g * 3,
+  },
+  {
+    ev: 'perfect',
+    mode: 'add',
+    goals: [10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 110, 130, 150, 175, 200, 250, 300, 350, 400, 500],
+    text: (g) => `Land ${groupDigits(g)} perfect landings in total`,
+    reward: (g) => 20 + g * 2,
+  },
 ];
+
+export const MISSION_POOL = MISSION_KINDS.flatMap((kind) =>
+  kind.goals.map((goal) => ({
+    id: `${kind.ev}:${goal}`,
+    ev: kind.ev,
+    mode: kind.mode,
+    goal,
+    reward: kind.reward(goal),
+    text: kind.text(goal),
+  }))
+);
 
 export const POWERUPS = {
   shield: { name: 'Shield', color: '#6ee7ff', icon: 'shield', duration: 0 },

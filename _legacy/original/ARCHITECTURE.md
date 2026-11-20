@@ -1,4 +1,4 @@
-# Down-Down-Down — Agent Context
+# Down-Down-Down — Prototype Notes
 
 ## Project Overview
 Hyper-casual infinite vertical scroller HTML5 Canvas game with a ninja character falling through hazards, collecting power-ups, and earning rewards.

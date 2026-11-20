@@ -23,6 +23,9 @@ export class Screens {
       case 'HANGAR':
         this.hangar(ctx);
         break;
+      case 'MISSIONS':
+        this.missions(ctx);
+        break;
       case 'PROFILES':
         this.profiles(ctx);
         break;
@@ -77,13 +80,19 @@ export class Screens {
 
     ui.text(ctx, 'an endless descent', 88, 268, { size: 15, weight: 600, color: COLORS.muted });
 
-    if (ui.button(ctx, 88, 292, 300, 62, 'PLAY', { ...BTN.primary, size: 24, sub: 'Enter / Space', id: 'play' })) {
+    if (ui.button(ctx, 88, 292, 300, 58, 'PLAY', { ...BTN.primary, size: 23, sub: 'Enter / Space', id: 'play' })) {
       g.startRun();
     }
-    if (ui.button(ctx, 88, 364, 300, 40, 'HOW TO PLAY', { size: 14, id: 'howto' })) g.setState('HOWTO');
-    if (ui.button(ctx, 88, 412, 300, 40, 'HANGAR', { size: 14, id: 'hangar' })) g.setState('HANGAR');
-    if (ui.button(ctx, 88, 460, 300, 40, 'PROFILES', { size: 14, id: 'profiles' })) g.setState('PROFILES');
-    if (ui.button(ctx, 88, 508, 300, 40, 'SETTINGS', { size: 14, id: 'settings' })) g.setState('SETTINGS');
+    const menuItems = [
+      ['HOW TO PLAY', 'howto', 'HOWTO'],
+      ['MISSION BOARD', 'missions', 'MISSIONS'],
+      ['HANGAR', 'hangar', 'HANGAR'],
+      ['PROFILES', 'profiles', 'PROFILES'],
+      ['SETTINGS', 'settings', 'SETTINGS'],
+    ];
+    menuItems.forEach(([label, id, state], i) => {
+      if (ui.button(ctx, 88, 358 + i * 36, 300, 32, label, { size: 12.5, id })) g.setState(state);
+    });
 
     const best = g.progress.data.best;
     ctx.textAlign = 'left';
@@ -150,9 +159,16 @@ export class Screens {
     }
 
     const missions = g.progress.data.missions.filter((m) => !m.done).slice(0, 3);
-    ui.panel(ctx, 560, 452, 372, 116, { radius: 14, fill: 'rgba(8,13,24,0.72)' });
+    const boardOver = this._over(560, 452, 372, 116);
+    ui.panel(ctx, 560, 452, 372, 116, { radius: 14, fill: boardOver ? 'rgba(16,24,38,0.82)' : 'rgba(8,13,24,0.72)' });
+    ui.text(ctx, 'MISSIONS', 580, 476, { size: 10, weight: 800, color: COLORS.muted });
+    ui.text(ctx, 'BOARD →', 912, 476, { size: 9, weight: 800, color: alpha(pal.accent, boardOver ? 1 : 0.55), align: 'right' });
+    if (boardOver && g.input.pointer.clicked) {
+      g.input.pointer.clicked = false;
+      g.setState('MISSIONS');
+      g.audio.sfx('ui');
+    }
     if (missions.length) {
-      ui.text(ctx, 'MISSIONS', 580, 476, { size: 10, weight: 800, color: COLORS.muted });
       let my = 496;
       for (const m of missions) {
         ui.text(ctx, m.text, 580, my, { size: 11.5, weight: 600, color: 'rgba(238,244,255,0.8)' });
@@ -278,20 +294,39 @@ export class Screens {
     ctx.fillStyle = 'rgba(4,7,14,0.86)';
     ctx.fillRect(0, 0, VIEW.w, VIEW.h);
 
-    ui.text(ctx, 'HANGAR', 60, 84, { size: 28, weight: 900 });
-    ui.text(ctx, 'Choose your faller and trail. Shards are earned by every run.', 60, 106, { size: 12, weight: 500, color: COLORS.muted });
+    ui.text(ctx, 'HANGAR', 60, 78, { size: 26, weight: 900 });
 
+    const tabs = [
+      { id: 'fallers', label: 'FALLERS' },
+      { id: 'heroes', label: 'HEROES' },
+      { id: 'enemies', label: 'ENEMIES' },
+      { id: 'reef', label: 'REEF' },
+      { id: 'void', label: 'VOID' },
+      { id: 'spooky', label: 'SPOOKY' },
+    ];
+    if (!this.hangarTab) this.hangarTab = 'fallers';
+    tabs.forEach((tab, i) => {
+      if (ui.button(ctx, 60 + i * 110, 92, 102, 30, tab.label, {
+        variant: this.hangarTab === tab.id ? 'primary' : 'ghost',
+        size: 11,
+        id: `hangar-tab-${tab.id}`,
+      })) {
+        this.hangarTab = tab.id;
+        g.audio.sfx('ui');
+      }
+    });
     ui.gem(ctx, 786, 76, 9, pal.gem, g.time);
     ui.text(ctx, `${fmt(data.shards)}`, 900, 84, { size: 20, weight: 900, align: 'right' });
 
-    const cardW = 250;
+    const list = CHARACTERS.filter((c) => (c.group || 'fallers') === this.hangarTab);
+    const cardW = 200;
     const cardH = 150;
     let index = 0;
-    for (const c of CHARACTERS) {
-      const col = index % 3;
-      const row = Math.floor(index / 3);
-      const x = 60 + col * 282;
-      const y = 122 + row * 164;
+    for (const c of list) {
+      const col = index % 4;
+      const row = Math.floor(index / 4);
+      const x = 60 + col * 212;
+      const y = 132 + row * 162;
       index += 1;
       const owned = g.progress.ownsChar(c.id);
       const equipped = data.char === c.id;
@@ -306,23 +341,24 @@ export class Screens {
       rr(ctx, x, y, cardW, cardH, 14);
       ctx.stroke();
 
-      ui.character(ctx, c, x + 44, y + 88, 1.5, g.time + index, 1);
-      ui.text(ctx, c.name, x + 88, y + 30, { size: 17, weight: 800 });
-      ui.text(ctx, c.tag || '', x + 88, y + 45, { size: 8.5, weight: 800, color: alpha(pal.accent, 0.9) });
+      ui.character(ctx, c, x + 34, y + 72, 1.1, g.time + index, 1);
+      ui.text(ctx, c.name, x + 66, y + 26, { size: 13.5, weight: 800 });
+      ui.text(ctx, c.tag || '', x + 66, y + 40, { size: 7.2, weight: 800, color: alpha(pal.accent, 0.9) });
 
-      const barX = x + 88;
-      const barW = 112;
-      ui.bar(ctx, barX, y + 57, barW, 4, (c.stats.speed - 280) / 120, { color: alpha(pal.accent, 0.9) });
-      ui.text(ctx, 'SPD', x + 242, y + 60, { size: 8, weight: 700, color: COLORS.muted, align: 'right' });
-      ui.bar(ctx, barX, y + 69, barW, 4, (c.stats.jump - 460) / 100, { color: alpha(pal.accent2, 0.9) });
-      ui.text(ctx, 'JMP', x + 242, y + 72, { size: 8, weight: 700, color: COLORS.muted, align: 'right' });
-      ui.bar(ctx, barX, y + 81, barW, 4, c.stats.air / 2, { color: 'rgba(255,255,255,0.75)' });
-      ui.text(ctx, 'AIR', x + 242, y + 84, { size: 8, weight: 700, color: COLORS.muted, align: 'right' });
+      const barX = x + 66;
+      const barW = 76;
+      ui.bar(ctx, barX, y + 52, barW, 3.5, (c.stats.speed - 280) / 120, { color: alpha(pal.accent, 0.9) });
+      ui.text(ctx, 'SPD', x + 184, y + 55, { size: 7, weight: 700, color: COLORS.muted, align: 'right' });
+      ui.bar(ctx, barX, y + 63, barW, 3.5, (c.stats.jump - 460) / 110, { color: alpha(pal.accent2, 0.9) });
+      ui.text(ctx, 'JMP', x + 184, y + 66, { size: 7, weight: 700, color: COLORS.muted, align: 'right' });
+      ui.bar(ctx, barX, y + 74, barW, 3.5, c.stats.air / 2, { color: 'rgba(255,255,255,0.75)' });
+      ui.text(ctx, 'AIR', x + 184, y + 77, { size: 7, weight: 700, color: COLORS.muted, align: 'right' });
 
-      ui.text(ctx, c.desc, x + 88, y + 100, { size: 8.8, weight: 500, color: 'rgba(238,244,255,0.6)' });
+      const desc = c.desc.length > 27 ? `${c.desc.slice(0, 26)}…` : c.desc;
+      ui.text(ctx, desc, x + 66, y + 94, { size: 8, weight: 500, color: 'rgba(238,244,255,0.6)' });
 
-      const label = equipped ? 'EQUIPPED' : owned ? 'EQUIP' : `${c.cost} SHARDS`;
-      const clicked = ui.button(ctx, x + 88, y + 108, 150, 28, label, {
+      const label = equipped ? 'EQUIPPED' : owned ? 'EQUIP' : `${fmt(c.cost)} SHARDS`;
+      const clicked = ui.button(ctx, x + 66, y + 108, 122, 28, label, {
         variant: equipped ? 'ghost' : 'secondary',
         size: 10,
         disabled: equipped || (!owned && !afford),
@@ -347,11 +383,26 @@ export class Screens {
       }
     }
 
-    ui.text(ctx, 'TRAILS', 60, 454, { size: 11, weight: 800, color: COLORS.muted });
+    if (index < 8) {
+      const col = index % 4;
+      const row = Math.floor(index / 4);
+      const x = 60 + col * 212;
+      const y = 132 + row * 162;
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      rr(ctx, x, y, cardW, cardH, 14);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ui.text(ctx, 'MORE SOON', x + cardW / 2, y + cardH / 2 + 4, {
+        size: 11, weight: 800, color: 'rgba(238,244,255,0.28)', align: 'center',
+      });
+    }
+
+    ui.text(ctx, 'TRAILS', 60, 462, { size: 11, weight: 800, color: COLORS.muted });
     let ti = 0;
     for (const tr of TRAILS) {
       const x = 60 + ti * 172;
-      const y = 466;
+      const y = 468;
       ti += 1;
       const owned = g.progress.ownsTrail(tr.id);
       const equipped = data.trail === tr.id;
@@ -392,7 +443,85 @@ export class Screens {
     }
 
     if (ui.button(ctx, 60, 534, 150, 38, 'BACK', { size: 13, id: 'back-hangar' })) g.setState('MENU');
-    ui.text(ctx, 'Every run pays shards for depth, gems, score and clean landings.', 232, 557, {
+    ui.text(ctx, 'Each collection starts at 600 shards · prices climb within every set.', 232, 557, {
+      size: 10.5, weight: 500, color: 'rgba(238,244,255,0.45)',
+    });
+  }
+
+  missions(ctx) {
+    const g = this.game;
+    const ui = g.ui;
+    const pal = g.palette;
+    const data = g.progress.data;
+    const info = g.progress.bonusInfo();
+    ctx.fillStyle = 'rgba(4,7,14,0.88)';
+    ctx.fillRect(0, 0, VIEW.w, VIEW.h);
+
+    ui.text(ctx, 'MISSION BOARD', 60, 84, { size: 26, weight: 900 });
+    ui.text(ctx, 'Three cards at a time from 250 missions. Cleared cards sit out before they return.', 60, 106, {
+      size: 11, weight: 500, color: COLORS.muted,
+    });
+    ui.gem(ctx, 786, 76, 9, pal.gem, g.time);
+    ui.text(ctx, `${fmt(data.shards)}`, 900, 84, { size: 20, weight: 900, align: 'right' });
+
+    const active = data.missions.filter((m) => !m.done).slice(0, 3);
+    for (let i = 0; i < active.length; i++) {
+      const m = active[i];
+      const y = 132 + i * 108;
+      ui.panel(ctx, 60, y, 500, 96, { radius: 14, fill: 'rgba(12,18,30,0.86)', shadow: false });
+      ui.text(ctx, m.text, 84, y + 32, { size: 13, weight: 700 });
+      ui.bar(ctx, 84, y + 44, 320, 6, clamp(m.prog / m.goal, 0, 1), { color: pal.accent });
+      ui.text(ctx, `${Math.min(m.prog, m.goal)} / ${m.goal}`, 416, y + 51, { size: 10, weight: 700, color: COLORS.muted });
+      ui.gem(ctx, 84, y + 72, 7, pal.gem, g.time + i);
+      ui.text(ctx, `+${m.reward} shards on completion`, 100, y + 76, {
+        size: 10.5, weight: 700, color: alpha(pal.accent, 0.95),
+      });
+    }
+    if (!active.length) {
+      ui.panel(ctx, 60, 132, 500, 96, { radius: 14, fill: 'rgba(12,18,30,0.86)', shadow: false });
+      ui.text(ctx, 'Board clear', 84, 172, { size: 14, weight: 800 });
+      ui.text(ctx, 'New missions appear after your next run.', 84, 196, {
+        size: 10.5, weight: 500, color: COLORS.muted,
+      });
+    }
+
+    ui.panel(ctx, 584, 132, 316, 312, { radius: 14, fill: 'rgba(12,18,30,0.86)', shadow: false });
+    ui.text(ctx, 'BONUS CACHES', 608, 162, { size: 12, weight: 900, color: alpha(pal.accent, 0.95) });
+    ui.text(ctx, 'Every 3 missions cleared unlocks the next one.', 608, 180, {
+      size: 9.5, weight: 500, color: COLORS.muted,
+    });
+    ui.text(ctx, `+${fmt(info.value)}`, 608, 240, { size: 34, weight: 900 });
+    const valueW = ctx.measureText(`+${fmt(info.value)}`).width;
+    ui.text(ctx, 'shards', 614 + valueW, 240, { size: 12, weight: 700, color: COLORS.muted });
+
+    ui.bar(ctx, 608, 260, 268, 6, info.into / info.perCache, { color: alpha(pal.accent, 0.9) });
+    ui.text(ctx, `${info.into} / ${info.perCache} missions toward the next cache`, 608, 286, {
+      size: 9.5, weight: 600, color: COLORS.muted,
+    });
+
+    const claimLabel = info.claimable > 0 ? `CLAIM +${fmt(info.value)} SHARDS` : `NEXT CACHE IN ${info.toNext}`;
+    if (ui.button(ctx, 608, 300, 268, 44, claimLabel, {
+      ...(info.claimable > 0 ? BTN.primary : BTN.secondary),
+      size: info.claimable > 0 ? 12 : 11,
+      id: 'claim-bonus',
+      disabled: info.claimable === 0,
+    })) {
+      const paid = g.progress.claimBonus();
+      if (paid > 0) {
+        g.audio.sfx('buy');
+        g.toast(`Bonus cache opened: +${fmt(paid)} shards`, pal.accent);
+      }
+    }
+
+    ui.text(ctx, `${info.claimed} cache${info.claimed === 1 ? '' : 's'} claimed`, 608, 372, {
+      size: 10, weight: 700, color: 'rgba(238,244,255,0.55)',
+    });
+    ui.text(ctx, `${info.unlocked - info.claimed} waiting to be claimed`, 608, 390, {
+      size: 10, weight: 600, color: info.claimable > 0 ? alpha(pal.accent, 0.95) : 'rgba(238,244,255,0.4)',
+    });
+
+    if (ui.button(ctx, 60, 470, 160, 38, 'BACK', { size: 13, id: 'back-missions' })) g.setState('MENU');
+    ui.text(ctx, 'Mission rewards pay out the moment you clear them during a run.', 240, 494, {
       size: 10.5, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
   }

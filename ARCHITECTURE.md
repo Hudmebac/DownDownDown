@@ -1,4 +1,4 @@
-# Down, Down, Down — Agent Context
+# Down, Down, Down — Architecture & Developer Notes
 
 Project root: `F:\HeliosDownDownDown`.
 

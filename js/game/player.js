@@ -1,6 +1,6 @@
 import { PHYS, VIEW } from './config.js';
 import { TAU, alpha, approach, clamp, damp, rr } from '../core/utils.js';
-import { drawFaller } from './ui.js';
+import { drawDino, drawFaller, drawFriend, drawPlumber } from './ui.js';
 
 const INSET = PHYS.hitInset;
 
@@ -8,6 +8,7 @@ export class Player {
   constructor() {
     this.def = null;
     this.trailDef = null;
+    this.costume = null;
     this.reset(VIEW.w / 2, 200);
   }
 
@@ -321,7 +322,8 @@ export class Player {
     if (this.wingsActive) {
       const flap = 0.5 + 0.5 * Math.sin(this.anim * 26);
       ctx.globalAlpha = 0.85;
-      ctx.fillStyle = def.accent;
+      ctx.fillStyle =
+        this.costume === 'green' ? '#4fbf4a' : this.costume === 'red' ? '#e23b2e' : this.costume === 'dino' ? '#5cc84a' : def.accent;
       for (const side of [-1, 1]) {
         ctx.beginPath();
         ctx.ellipse(
@@ -338,13 +340,17 @@ export class Player {
       ctx.globalAlpha = 1;
     }
 
-    drawFaller(ctx, def, {
+    const look = {
       bob,
       legSwing,
       facing: this.facing > 0 ? 1 : -1,
       blink: this.blink > 0,
       t: this.anim,
-    });
+    };
+    if (this.costume === 'dino') drawDino(ctx, this.costume, look);
+    else if (this.costume) drawPlumber(ctx, this.costume, look);
+    else if (def.look) drawFriend(ctx, def, look);
+    else drawFaller(ctx, def, look);
 
     if (this.shield) {
       ctx.strokeStyle = alpha('#6ee7ff', 0.75 + Math.sin(this.anim * 6) * 0.2);

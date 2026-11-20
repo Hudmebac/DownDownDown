@@ -47,9 +47,17 @@ export class Game {
     this._scale = 1;
     this._lucky = false;
     this._luckyBuf = '';
-    this._luckySig = '';
+    this._luckySig = this._decode([0x6d, 0x76, 0x74, 0x6d, 0x76, 0x74]);
     this._luckyFx = 0;
-    for (const v of [0x6d, 0x76, 0x74, 0x6d, 0x76, 0x74]) this._luckySig += String.fromCharCode(v ^ 0x17);
+    this._costume = null;
+    this._lookBuf = '';
+    this._lookCodes = [
+      { id: 'red', sig: this._decode([0x7a, 0x76, 0x65, 0x7e, 0x78]), flash: '#e23b2e', toast: 'A red-capped plumber joins the descent' },
+      { id: 'green', sig: this._decode([0x7b, 0x62, 0x7e, 0x70, 0x7e]), flash: '#4fbf4a', toast: 'A green-capped plumber joins the descent' },
+      { id: 'dino', sig: this._decode([0x6e, 0x78, 0x64, 0x7f, 0x7e]), flash: '#5cc84a', toast: 'A hungry green dinosaur joins the descent' },
+    ];
+    this._lookMutedBefore = null;
+    this._lookMuteRestore = null;
 
     this.handlers = {
       onGem: (p) => this.onGem(p),
@@ -66,6 +74,12 @@ export class Game {
       window.addEventListener('resize', () => this.resize());
       this._boundFrame = (ts) => this.frame(ts);
     }
+  }
+
+  _decode(bytes) {
+    let out = '';
+    for (const v of bytes) out += String.fromCharCode(v ^ 0x17);
+    return out;
   }
 
   resize() {
@@ -123,6 +137,7 @@ export class Game {
     const trail = this.progress.trail;
     this.player.setLoadout(this.progress.char, trail);
     this.player.reset(VIEW.w / 2, 240);
+    this.player.costume = this._costume;
     this.world.reset();
     this.world.clearSpawn(VIEW.w / 2, 240);
     this.player.vy = 220;
@@ -165,6 +180,8 @@ export class Game {
     this.audio.sfx('start');
     this.toast('Hold Space or Up to slow your fall', this.palette.accent);
     if (this._lucky) this.toast('You feel unstoppable', '#ffd166');
+    const look = this._lookCodes.find((c) => c.id === this._costume);
+    if (look) this.toast(look.toast, look.flash);
   }
 
   quitToMenu() {
@@ -316,6 +333,22 @@ export class Game {
             this.toast('A golden warmth settles over you', '#ffd166');
           }
         }
+        this._lookBuf = (this._lookBuf + key).slice(-5);
+        if (this._lookBuf === this._lookCodes[0].sig[0]) this._lookMutedBefore = this.audio.muted;
+        for (const code of this._lookCodes) {
+          if (this._lookBuf !== code.sig) continue;
+          this._lookBuf = '';
+          if (code.id === 'red' && this._lookMutedBefore !== null) {
+            this._lookMuteRestore = this._lookMutedBefore;
+            this._lookMutedBefore = null;
+          }
+          if (this._costume === code.id) continue;
+          this._costume = code.id;
+          this.player.costume = code.id;
+          this.audio.sfx('powerup');
+          this.fx.flashIt(code.flash, 0.16);
+          this.toast(code.toast, code.flash);
+        }
       }
     }
 
@@ -346,17 +379,23 @@ export class Game {
       this.audio.setMuted(!this.audio.muted);
       this.toast(this.audio.muted ? 'Sound off' : 'Sound on', this.palette.accent);
     }
+    if (this._lookMuteRestore !== null) {
+      this.audio.setMuted(this._lookMuteRestore);
+      this.toasts = this.toasts.filter((t) => t.text !== 'Sound off' && t.text !== 'Sound on');
+      this._lookMuteRestore = null;
+    }
 
     if (this.input.pausePressed) {
       if (this.state === 'PLAYING') this.setState('PAUSED');
       else if (this.state === 'PAUSED') this.setState('PLAYING');
-      else if (['HOWTO', 'HANGAR', 'PROFILES', 'SETTINGS'].includes(this.state)) this.setState('MENU');
+      else if (['HOWTO', 'HANGAR', 'MISSIONS', 'PROFILES', 'SETTINGS'].includes(this.state)) this.setState('MENU');
     }
 
     switch (this.state) {
       case 'MENU':
       case 'HOWTO':
       case 'HANGAR':
+      case 'MISSIONS':
       case 'PROFILES':
       case 'SETTINGS':
         this.menuCam += 26 * dt;
