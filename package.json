@@ -1,0 +1,11 @@
+{
+  "name": "down-down-down",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An endless descent — canvas platformer with designed level patterns, combos and persistent progression.",
+  "scripts": {
+    "start": "python -m http.server 8080",
+    "smoke": "node tools/smoke.mjs"
+  }
+}
