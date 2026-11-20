@@ -104,6 +104,17 @@ ${css}
   <main id="stage">
     <canvas id="gameCanvas" width="960" height="600" aria-label="Down, Down, Down — an endless descent"></canvas>
   </main>
+  <div id="rotate-hint" hidden>
+    <section class="rotate-card">
+      <p class="eyebrow">Mobile app mode</p>
+      <h1>Turn your phone sideways</h1>
+      <p>Down, Down, Down is a landscape game. Rotate the device and it fills the screen edge to edge.</p>
+      <div class="rotate-actions">
+        <button id="rotate-dismiss" type="button">Play anyway</button>
+        <button id="rotate-desktop" type="button">Use desktop mode</button>
+      </div>
+    </section>
+  </div>
   <pre id="fatal-error" hidden></pre>
   <noscript>Down, Down, Down needs JavaScript enabled.</noscript>
   <script>

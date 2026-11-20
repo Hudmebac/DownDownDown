@@ -144,6 +144,97 @@ canvas {
   }
 }
 
+/* Mobile app mode: the canvas owns the whole screen and the 960x600 game is centred inside it. */
+html.mobile-view,
+html.mobile-view body {
+  height: 100dvh;
+}
+
+html.mobile-view #stage {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html.mobile-view canvas {
+  cursor: default;
+}
+
+html.mobile-view #serve-notice {
+  margin: 20px;
+  padding: 26px 24px;
+}
+
+#rotate-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(4, 7, 14, 0.92);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+#rotate-hint[hidden] {
+  display: none;
+}
+
+.rotate-card {
+  max-width: 340px;
+  text-align: center;
+}
+
+.rotate-card .eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6ee7ff;
+  margin-bottom: 10px;
+}
+
+.rotate-card h1 {
+  font-size: 23px;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.rotate-card p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(238, 244, 255, 0.72);
+  margin-bottom: 22px;
+}
+
+.rotate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rotate-actions button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef4ff;
+  cursor: pointer;
+}
+
+.rotate-actions button:first-child {
+  border-color: rgba(110, 231, 255, 0.55);
+  background: rgba(110, 231, 255, 0.16);
+  color: #ffffff;
+}
+
   </style>
   <style>
     #fatal-error {
@@ -165,6 +256,17 @@ canvas {
   <main id="stage">
     <canvas id="gameCanvas" width="960" height="600" aria-label="Down, Down, Down — an endless descent"></canvas>
   </main>
+  <div id="rotate-hint" hidden>
+    <section class="rotate-card">
+      <p class="eyebrow">Mobile app mode</p>
+      <h1>Turn your phone sideways</h1>
+      <p>Down, Down, Down is a landscape game. Rotate the device and it fills the screen edge to edge.</p>
+      <div class="rotate-actions">
+        <button id="rotate-dismiss" type="button">Play anyway</button>
+        <button id="rotate-desktop" type="button">Use desktop mode</button>
+      </div>
+    </section>
+  </div>
   <pre id="fatal-error" hidden></pre>
   <noscript>Down, Down, Down needs JavaScript enabled.</noscript>
   <script>
@@ -396,8 +498,8 @@ const STORM = {
 };
 
 const TOUCH = {
-  left: { x: 22, y: 468, w: 94, h: 94 },
-  right: { x: 128, y: 468, w: 94, h: 94 },
+  // movement is split: holding anywhere on the left half steers left, the right half steers right
+  split: 0.5,
   dash: { x: 648, y: 456, w: 102, h: 102 },
   jump: { x: 776, y: 424, w: 140, h: 140 },
 };
@@ -1301,6 +1403,8 @@ class ProfileStore {
 }
 
 /* ---- js/core/input.js ---- */
+const SPLIT_X = () => VIEW.w * TOUCH.split;
+
 const JUMP_KEYS = new Set([' ', 'ArrowUp', 'w', 'W']);
 const LEFT_KEYS = new Set(['ArrowLeft', 'a', 'A']);
 const RIGHT_KEYS = new Set(['ArrowRight', 'd', 'D']);
@@ -1401,6 +1505,11 @@ class Input {
 
     const toLogical = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
+      const view = this.canvas.__view;
+      if (view && view.s) {
+        // app mode draws the 960x600 design space centred inside a full-bleed canvas
+        return { x: (clientX - rect.left - view.ox) / view.s, y: (clientY - rect.top - view.oy) / view.s };
+      }
       const sx = VIEW.w / (rect.width || 1);
       const sy = VIEW.h / (rect.height || 1);
       return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy };
@@ -1457,11 +1566,13 @@ class Input {
     let right = false;
     let jump = false;
     let dash = false;
+    const split = SPLIT_X();
     for (const p of this._pointers.values()) {
-      if (this._hit('left', p)) left = true;
-      if (this._hit('right', p)) right = true;
+      // the buttons win over the movement halves so jump/dash never also steer
       if (this._hit('jump', p)) jump = true;
-      if (this._hit('dash', p)) dash = true;
+      else if (this._hit('dash', p)) dash = true;
+      else if (p.x < split) left = true;
+      else right = true;
     }
     const jumpPressed = jump && !this.touch.jump;
     const dashPressed = dash && !this.touch.dash;
@@ -6957,7 +7068,7 @@ class HUD {
       ctx.textAlign = 'left';
     }
 
-    if (g.input.touchMode) this.renderTouch(ctx, pal);
+    if (g.showTouch) this.renderTouch(ctx, pal);
     ctx.restore();
   }
 
@@ -6979,10 +7090,31 @@ class HUD {
       ctx.textBaseline = 'alphabetic';
       ctx.textAlign = 'left';
     };
-    drawPad(TOUCH.left, '◀', g.input.touch.left);
-    drawPad(TOUCH.right, '▶', g.input.touch.right);
-    drawPad(TOUCH.jump, 'JUMP', g.input.touch.jump);
-    drawPad(TOUCH.dash, 'DASH', g.input.touch.dash);
+    const touch = g.input.touch;
+    const split = VIEW.w * TOUCH.split;
+
+    // movement is split: left half steers left, right half steers right
+    for (const dir of [-1, 1]) {
+      const held = dir < 0 ? touch.left : touch.right;
+      if (held) {
+        ctx.fillStyle = alpha(pal.accent, 0.08);
+        ctx.fillRect(dir < 0 ? 0 : split, 0, split, VIEW.h);
+      }
+      const cx = dir < 0 ? 56 : VIEW.w - 56;
+      const cy = VIEW.h * 0.6;
+      ctx.strokeStyle = alpha('#ffffff', held ? 0.6 : 0.2);
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * -12, cy - 15);
+      ctx.lineTo(cx + dir * 10, cy);
+      ctx.lineTo(cx + dir * -12, cy + 15);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+
+    drawPad(TOUCH.dash, 'DASH', touch.dash);
+    drawPad(TOUCH.jump, 'JUMP', touch.jump);
   }
 }
 
@@ -7175,6 +7307,9 @@ class Screens {
     ui.text(ctx, 'HOW TO PLAY', 92, 88, { size: 26, weight: 900 });
     ui.text(ctx, 'Controls on the left · the story of the Downward Kids on the right', 92, 108, {
       size: 10.5, weight: 500, color: COLORS.muted,
+    });
+    ui.text(ctx, 'On a phone: hold the left half of the screen to steer left, the right half to steer right, and tap JUMP / DASH.', 92, 126, {
+      size: 10, weight: 600, color: alpha(pal.accent, 0.85),
     });
 
     const rows = [
@@ -7654,7 +7789,7 @@ class Screens {
     const s = g.progress.settings;
     ctx.fillStyle = 'rgba(4,7,14,0.82)';
     ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-    ui.panel(ctx, 250, 86, 460, 420, { radius: 20 });
+    ui.panel(ctx, 250, 86, 460, 488, { radius: 20 });
     ui.text(ctx, 'SETTINGS', 290, 134, { size: 24, weight: 900 });
 
     ui.text(ctx, 'MUSIC', 290, 190, { size: 12, weight: 800, color: COLORS.muted });
@@ -7692,11 +7827,25 @@ class Screens {
       size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    ui.text(ctx, 'Space / Up: jump · hold in the air to slow the fall · Down: drop through a cloud · M: mute · Esc: pause', 290, 396, {
+    const mobileNow = g.mobileView;
+    ui.text(ctx, 'DISPLAY', 290, 400, { size: 12, weight: 800, color: COLORS.muted });
+    if (ui.button(ctx, 290, 412, 180, 34, 'DESKTOP', { size: 11, id: 'display-desktop', variant: mobileNow ? 'secondary' : 'primary' })) {
+      g.setDisplay('desktop');
+    }
+    if (ui.button(ctx, 482, 412, 190, 34, 'MOBILE APP', { size: 11, id: 'display-mobile', variant: mobileNow ? 'primary' : 'secondary' })) {
+      g.setDisplay('mobile');
+    }
+    ui.text(ctx, mobileNow
+      ? 'Full screen with thumb pads — rotate to landscape for the big view.'
+      : 'Framed window with keyboard controls, like the desktop build.', 290, 468, {
       size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    if (ui.button(ctx, 330, 418, 300, 44, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
+    ui.text(ctx, 'Space / Up: jump · hold in the air to slow the fall · Down: drop through a cloud · M: mute · Esc: pause', 290, 492, {
+      size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
+    });
+
+    if (ui.button(ctx, 330, 512, 300, 42, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
     ctx.fillStyle = alpha(pal.accent, 0.5);
     rr(ctx, 290, 152, 380, 2, 1);
     ctx.fill();
@@ -7885,9 +8034,21 @@ class Game {
 
     this.player.setLoadout(this.progress.char, this.progress.trail);
 
+    try {
+      this._ignoreRotate = window.sessionStorage.getItem('ddd.rotate.dismissed') === '1';
+    } catch (e) {
+      this._ignoreRotate = false;
+    }
+    this._ox = 0;
+    this._oy = 0;
+    this._view = { s: 1, ox: 0, oy: 0 };
+
     this.resize();
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', () => this.resize());
+      window.addEventListener('orientationchange', () => window.setTimeout(() => this.resize(), 120));
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
+      this._bindDisplayControls();
       this._boundFrame = (ts) => this.frame(ts);
     }
   }
@@ -7898,18 +8059,100 @@ class Game {
     return out;
   }
 
+  _detectMobile() {
+    if (typeof window === 'undefined') return false;
+    const touch = 'ontouchstart' in window || (typeof navigator !== 'undefined' && (navigator.maxTouchPoints || 0) > 0);
+    if (!touch) return false;
+    const mq = typeof window.matchMedia === 'function' ? (q) => window.matchMedia(q).matches : () => false;
+    const smallest = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+    return mq('(pointer: coarse)') || mq('(hover: none)') || (smallest > 0 && smallest <= 820);
+  }
+
+  get mobileView() {
+    const mode = this.progress.settings.display;
+    if (mode === 'mobile') return true;
+    if (mode === 'desktop') return false;
+    return this._detectMobile();
+  }
+
+  get showTouch() {
+    return this.input.touchMode || this.mobileView;
+  }
+
+  setDisplay(mode) {
+    this.progress.settings.display = mode === 'mobile' ? 'mobile' : 'desktop';
+    this.progress.save();
+    this.audio.sfx('ui');
+    this.resize();
+  }
+
+  _bindDisplayControls() {
+    if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+    const dismiss = document.getElementById('rotate-dismiss');
+    if (dismiss) {
+      dismiss.addEventListener('click', () => {
+        this._ignoreRotate = true;
+        try {
+          window.sessionStorage.setItem('ddd.rotate.dismissed', '1');
+        } catch (e) { /* storage blocked, keep it for this run only */ }
+        this.resize();
+      });
+    }
+    const desktop = document.getElementById('rotate-desktop');
+    if (desktop) desktop.addEventListener('click', () => this.setDisplay('desktop'));
+
+    // app mode plays fullscreen: the first tap on the game is a user gesture, so it can go fullscreen
+    const root = document.documentElement;
+    if (root && typeof root.requestFullscreen === 'function' && typeof this.canvas.addEventListener === 'function') {
+      this.canvas.addEventListener('pointerdown', () => {
+        if (!this.mobileView || document.fullscreenElement) return;
+        const pending = root.requestFullscreen({ navigationUI: 'hide' });
+        if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+      }, { passive: true });
+      document.addEventListener('fullscreenchange', () => this.resize());
+    }
+  }
+
   resize() {
     if (typeof window === 'undefined') return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const scale = Math.min(window.innerWidth / VIEW.w, window.innerHeight / VIEW.h);
-    const cssW = Math.max(1, Math.floor(VIEW.w * scale));
-    const cssH = Math.max(1, Math.floor(VIEW.h * scale));
+    const mobile = this.mobileView;
+    const root = typeof document !== 'undefined' ? document.documentElement : null;
+    if (root && root.classList) root.classList.toggle('mobile-view', mobile);
+    const stage = this.canvas.parentElement;
+    let cssW;
+    let cssH;
+    if (mobile) {
+      cssW = Math.max(1, Math.floor((stage && stage.clientWidth) || window.innerWidth));
+      cssH = Math.max(1, Math.floor((stage && stage.clientHeight) || window.innerHeight));
+    } else {
+      const fit = Math.min(window.innerWidth / VIEW.w, window.innerHeight / VIEW.h);
+      cssW = Math.max(1, Math.floor(VIEW.w * fit));
+      cssH = Math.max(1, Math.floor(VIEW.h * fit));
+    }
+    // the game always draws in a 960x600 design space; mobile mode centres it in a full-bleed canvas
+    const s = Math.min(cssW / VIEW.w, cssH / VIEW.h);
+    const ox = mobile ? Math.round((cssW - VIEW.w * s) / 2) : 0;
+    const oy = mobile ? Math.round((cssH - VIEW.h * s) / 2) : 0;
     this.canvas.style.width = `${cssW}px`;
     this.canvas.style.height = `${cssH}px`;
     this.canvas.width = Math.floor(cssW * dpr);
     this.canvas.height = Math.floor(cssH * dpr);
-    this._scale = (cssW / VIEW.w) * dpr;
+    this._scale = s * dpr;
+    this._ox = ox * dpr;
+    this._oy = oy * dpr;
+    this._view = { s, ox, oy };
+    this.canvas.__view = this._view;
     this.ctx.imageSmoothingEnabled = true;
+    this._applyDisplayChrome(mobile, cssW, cssH);
+  }
+
+  _applyDisplayChrome(mobile, cssW, cssH) {
+    if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+    const hint = document.getElementById('rotate-hint');
+    if (!hint) return;
+    const portrait = mobile && cssH > cssW;
+    hint.hidden = !(portrait && !this._ignoreRotate);
   }
 
   start() {
@@ -7994,7 +8237,10 @@ class Game {
     }
     this.setState('PLAYING');
     this.audio.sfx('start');
-    this.toast('Hold Space or Up to slow your fall', this.palette.accent);
+    this.toast(
+      this.mobileView ? 'Hold a side to steer · tap JUMP to float' : 'Hold Space or Up to slow your fall',
+      this.palette.accent
+    );
     if (this._lucky) this.toast('You feel unstoppable', '#ffd166');
     const look = this._lookCodes.find((c) => c.id === this._costume);
     if (look) this.toast(look.toast, look.flash);
@@ -8374,7 +8620,16 @@ class Game {
 
   render() {
     const ctx = this.ctx;
-    ctx.setTransform(this._scale, 0, 0, this._scale, 0, 0);
+    if (this._ox || this._oy) {
+      // paint the letterbox gutters so the app-mode canvas never shows page background
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const gutter = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+      gutter.addColorStop(0, '#0a1424');
+      gutter.addColorStop(1, '#04060b');
+      ctx.fillStyle = gutter;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    ctx.setTransform(this._scale, 0, 0, this._scale, this._ox, this._oy);
     this.ui.begin();
 
     const inRun = ['PLAYING', 'PAUSED', 'GAMEOVER'].includes(this.state);

@@ -192,6 +192,9 @@ export class Screens {
     ui.text(ctx, 'Controls on the left · the story of the Downward Kids on the right', 92, 108, {
       size: 10.5, weight: 500, color: COLORS.muted,
     });
+    ui.text(ctx, 'On a phone: hold the left half of the screen to steer left, the right half to steer right, and tap JUMP / DASH.', 92, 126, {
+      size: 10, weight: 600, color: alpha(pal.accent, 0.85),
+    });
 
     const rows = [
       ['A / D', 'Move left and right.'],
@@ -670,7 +673,7 @@ export class Screens {
     const s = g.progress.settings;
     ctx.fillStyle = 'rgba(4,7,14,0.82)';
     ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-    ui.panel(ctx, 250, 86, 460, 420, { radius: 20 });
+    ui.panel(ctx, 250, 86, 460, 488, { radius: 20 });
     ui.text(ctx, 'SETTINGS', 290, 134, { size: 24, weight: 900 });
 
     ui.text(ctx, 'MUSIC', 290, 190, { size: 12, weight: 800, color: COLORS.muted });
@@ -708,11 +711,25 @@ export class Screens {
       size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    ui.text(ctx, 'Space / Up: jump · hold in the air to slow the fall · Down: drop through a cloud · M: mute · Esc: pause', 290, 396, {
+    const mobileNow = g.mobileView;
+    ui.text(ctx, 'DISPLAY', 290, 400, { size: 12, weight: 800, color: COLORS.muted });
+    if (ui.button(ctx, 290, 412, 180, 34, 'DESKTOP', { size: 11, id: 'display-desktop', variant: mobileNow ? 'secondary' : 'primary' })) {
+      g.setDisplay('desktop');
+    }
+    if (ui.button(ctx, 482, 412, 190, 34, 'MOBILE APP', { size: 11, id: 'display-mobile', variant: mobileNow ? 'primary' : 'secondary' })) {
+      g.setDisplay('mobile');
+    }
+    ui.text(ctx, mobileNow
+      ? 'Full screen with thumb pads — rotate to landscape for the big view.'
+      : 'Framed window with keyboard controls, like the desktop build.', 290, 468, {
       size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    if (ui.button(ctx, 330, 418, 300, 44, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
+    ui.text(ctx, 'Space / Up: jump · hold in the air to slow the fall · Down: drop through a cloud · M: mute · Esc: pause', 290, 492, {
+      size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
+    });
+
+    if (ui.button(ctx, 330, 512, 300, 42, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
     ctx.fillStyle = alpha(pal.accent, 0.5);
     rr(ctx, 290, 152, 380, 2, 1);
     ctx.fill();

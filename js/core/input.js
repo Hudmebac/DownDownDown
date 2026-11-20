@@ -1,5 +1,7 @@
 import { VIEW, TOUCH } from '../game/config.js';
 
+const SPLIT_X = () => VIEW.w * TOUCH.split;
+
 const JUMP_KEYS = new Set([' ', 'ArrowUp', 'w', 'W']);
 const LEFT_KEYS = new Set(['ArrowLeft', 'a', 'A']);
 const RIGHT_KEYS = new Set(['ArrowRight', 'd', 'D']);
@@ -100,6 +102,11 @@ export class Input {
 
     const toLogical = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
+      const view = this.canvas.__view;
+      if (view && view.s) {
+        // app mode draws the 960x600 design space centred inside a full-bleed canvas
+        return { x: (clientX - rect.left - view.ox) / view.s, y: (clientY - rect.top - view.oy) / view.s };
+      }
       const sx = VIEW.w / (rect.width || 1);
       const sy = VIEW.h / (rect.height || 1);
       return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy };
@@ -156,11 +163,13 @@ export class Input {
     let right = false;
     let jump = false;
     let dash = false;
+    const split = SPLIT_X();
     for (const p of this._pointers.values()) {
-      if (this._hit('left', p)) left = true;
-      if (this._hit('right', p)) right = true;
+      // the buttons win over the movement halves so jump/dash never also steer
       if (this._hit('jump', p)) jump = true;
-      if (this._hit('dash', p)) dash = true;
+      else if (this._hit('dash', p)) dash = true;
+      else if (p.x < split) left = true;
+      else right = true;
     }
     const jumpPressed = jump && !this.touch.jump;
     const dashPressed = dash && !this.touch.dash;

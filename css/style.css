@@ -134,3 +134,94 @@ canvas {
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 }
+
+/* Mobile app mode: the canvas owns the whole screen and the 960x600 game is centred inside it. */
+html.mobile-view,
+html.mobile-view body {
+  height: 100dvh;
+}
+
+html.mobile-view #stage {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html.mobile-view canvas {
+  cursor: default;
+}
+
+html.mobile-view #serve-notice {
+  margin: 20px;
+  padding: 26px 24px;
+}
+
+#rotate-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(4, 7, 14, 0.92);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+#rotate-hint[hidden] {
+  display: none;
+}
+
+.rotate-card {
+  max-width: 340px;
+  text-align: center;
+}
+
+.rotate-card .eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6ee7ff;
+  margin-bottom: 10px;
+}
+
+.rotate-card h1 {
+  font-size: 23px;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.rotate-card p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(238, 244, 255, 0.72);
+  margin-bottom: 22px;
+}
+
+.rotate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rotate-actions button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef4ff;
+  cursor: pointer;
+}
+
+.rotate-actions button:first-child {
+  border-color: rgba(110, 231, 255, 0.55);
+  background: rgba(110, 231, 255, 0.16);
+  color: #ffffff;
+}

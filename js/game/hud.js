@@ -151,7 +151,7 @@ export class HUD {
       ctx.textAlign = 'left';
     }
 
-    if (g.input.touchMode) this.renderTouch(ctx, pal);
+    if (g.showTouch) this.renderTouch(ctx, pal);
     ctx.restore();
   }
 
@@ -173,9 +173,30 @@ export class HUD {
       ctx.textBaseline = 'alphabetic';
       ctx.textAlign = 'left';
     };
-    drawPad(TOUCH.left, '◀', g.input.touch.left);
-    drawPad(TOUCH.right, '▶', g.input.touch.right);
-    drawPad(TOUCH.jump, 'JUMP', g.input.touch.jump);
-    drawPad(TOUCH.dash, 'DASH', g.input.touch.dash);
+    const touch = g.input.touch;
+    const split = VIEW.w * TOUCH.split;
+
+    // movement is split: left half steers left, right half steers right
+    for (const dir of [-1, 1]) {
+      const held = dir < 0 ? touch.left : touch.right;
+      if (held) {
+        ctx.fillStyle = alpha(pal.accent, 0.08);
+        ctx.fillRect(dir < 0 ? 0 : split, 0, split, VIEW.h);
+      }
+      const cx = dir < 0 ? 56 : VIEW.w - 56;
+      const cy = VIEW.h * 0.6;
+      ctx.strokeStyle = alpha('#ffffff', held ? 0.6 : 0.2);
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * -12, cy - 15);
+      ctx.lineTo(cx + dir * 10, cy);
+      ctx.lineTo(cx + dir * -12, cy + 15);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+
+    drawPad(TOUCH.dash, 'DASH', touch.dash);
+    drawPad(TOUCH.jump, 'JUMP', touch.jump);
   }
 }

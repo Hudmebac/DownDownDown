@@ -73,8 +73,8 @@ export const STORM = {
 };
 
 export const TOUCH = {
-  left: { x: 22, y: 468, w: 94, h: 94 },
-  right: { x: 128, y: 468, w: 94, h: 94 },
+  // movement is split: holding anywhere on the left half steers left, the right half steers right
+  split: 0.5,
   dash: { x: 648, y: 456, w: 102, h: 102 },
   jump: { x: 776, y: 424, w: 140, h: 140 },
 };
