@@ -180,6 +180,10 @@ export class Audio {
         this.tone({ freq: base * 1.5, dur: 0.12, type: 'sine', gain: 0.07, delay: 0.03 });
         break;
       }
+      case 'wall':
+        this.tone({ freq: 90, to: 58, dur: 0.55, type: 'sawtooth', gain: 0.1 });
+        this.noise({ dur: 0.4, gain: 0.12, filter: 420 });
+        break;
       case 'hurt':
         this.tone({ freq: 260, to: 70, dur: 0.34, type: 'square', gain: 0.16 });
         this.noise({ dur: 0.25, gain: 0.16, filter: 500 });

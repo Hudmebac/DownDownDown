@@ -1,5 +1,5 @@
 import { TAU, alpha, clamp, rr, shade } from '../core/utils.js';
-import { POWERUPS, VIEW } from './config.js';
+import { EDGE, POWERUPS, VIEW } from './config.js';
 
 export function updatePlatform(p, dt, time) {
   if (p.range) p.x = p.originX + Math.sin(time * p.speed + p.phase) * p.range;
@@ -78,6 +78,33 @@ export function updateHazard(h, dt, time, player, scale = 1) {
       h.y += h.vy * dt;
       break;
     }
+    case 'wall': {
+      h.t += dt;
+      // match the fall speed and sit slightly ahead of it, so the wall is
+      // already in the lane when it opens instead of trailing behind the player
+      const fall = Math.max(0, player.vy || 0);
+      const reach = (EDGE.follow + fall) * dt;
+      const target = player.y + player.h / 2 - h.h / 2 + EDGE.lead;
+      h.y += clamp(target - h.y, -reach, reach);
+      const t = h.t - EDGE.warn;
+      if (h.t < EDGE.warn) {
+        h.state = 'warn';
+        h.depth = 0;
+      } else if (t < EDGE.extend) {
+        h.state = 'grow';
+        h.depth = EDGE.depth * (t / EDGE.extend);
+      } else if (t < EDGE.extend + EDGE.hold) {
+        h.state = 'hold';
+        h.depth = EDGE.depth;
+      } else if (t < EDGE.extend + EDGE.hold + EDGE.retract) {
+        h.state = 'shrink';
+        h.depth = EDGE.depth * (1 - (t - EDGE.extend - EDGE.hold) / EDGE.retract);
+      } else {
+        h.state = 'gone';
+        h.depth = 0;
+      }
+      break;
+    }
     default:
       break;
   }
@@ -91,6 +118,11 @@ export function hazardRect(h) {
       return h.active ? { x: h.x, y: h.y - h.h / 2, w: h.w, h: h.h } : null;
     case 'crusher':
       return { x: h.x, y: h.y, w: h.w, h: h.h };
+    case 'wall':
+      if (!(h.depth > 8)) return null;
+      return h.side === 'left'
+        ? { x: 0, y: h.y, w: h.depth, h: h.h }
+        : { x: VIEW.w - h.depth, y: h.y, w: h.depth, h: h.h };
     default:
       return { x: h.x, y: h.y, w: h.w, h: h.h };
   }
@@ -296,6 +328,65 @@ export function renderHazard(ctx, h, pal, time) {
       ctx.arc(cx - 6 + 1, cy - 3, 1.3, 0, TAU);
       ctx.arc(cx + 6 + 1, cy - 3, 1.3, 0, TAU);
       ctx.fill();
+      break;
+    }
+    case 'wall': {
+      const left = h.side === 'left';
+      const d = Math.max(0, h.depth);
+      const top = h.y - 26;
+      const bot = h.y + h.h + 26;
+      const warn = h.state === 'warn';
+      const pulse = 0.5 + 0.5 * Math.sin(time * (warn ? 22 : 10));
+      const edgeX = left ? 0 : VIEW.w;
+      const tint = pal.hazard;
+      ctx.save();
+
+      // the seam that throbs before the wall arrives
+      ctx.shadowColor = alpha(tint, 0.85);
+      ctx.shadowBlur = warn ? 12 + pulse * 20 : 20;
+      ctx.fillStyle = alpha(tint, warn ? 0.32 + pulse * 0.55 : 0.85);
+      ctx.fillRect(left ? 0 : VIEW.w - 6, top, 6, bot - top);
+      ctx.shadowBlur = 0;
+
+      if (d > 1) {
+        const g = ctx.createLinearGradient(edgeX, 0, left ? d : VIEW.w - d, 0);
+        g.addColorStop(0, alpha('#ffffff', 0.6));
+        g.addColorStop(0.1, alpha(tint, 0.92));
+        g.addColorStop(0.65, alpha(tint, 0.62));
+        g.addColorStop(1, alpha(tint, 0.16));
+        ctx.fillStyle = g;
+        ctx.fillRect(left ? 0 : VIEW.w - d, top, d, bot - top);
+
+        // inward face: blunt lobes in the organic biomes, blades everywhere else
+        const dir = left ? 1 : -1;
+        const face = left ? d : VIEW.w - d;
+        const soft = pal.id === 'garden' || pal.id === 'abyss';
+        const step = 26;
+        ctx.beginPath();
+        for (let y = top; y < bot; y += step) {
+          ctx.moveTo(face, y);
+          if (soft) ctx.quadraticCurveTo(face + dir * 15, y + step * 0.5, face, y + step);
+          else {
+            ctx.lineTo(face + dir * 14, y + step * 0.5);
+            ctx.lineTo(face, y + step);
+          }
+        }
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        ctx.strokeStyle = alpha('#ffffff', 0.5);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(face, top);
+        ctx.lineTo(face, bot);
+        ctx.stroke();
+
+        if (pal.id === 'ember' || pal.id === 'lastlight') {
+          ctx.fillStyle = alpha(pal.accent2, 0.3 + pulse * 0.25);
+          ctx.fillRect(left ? 0 : VIEW.w - d * 0.55, top, d * 0.55, bot - top);
+        }
+      }
+      ctx.restore();
       break;
     }
     default:

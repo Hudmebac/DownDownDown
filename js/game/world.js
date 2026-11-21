@@ -1,4 +1,4 @@
-import { BIOMES, CHUNK_H, CYCLE, PHYS, PX_PER_METER, STORM, VIEW, biomeIndexAt } from './config.js';
+import { BIOMES, CHUNK_H, CYCLE, EDGE, PHYS, PX_PER_METER, STORM, VIEW, biomeIndexAt } from './config.js';
 import { buildChunk, tierForDepth } from './levelgen.js';
 import { updatePlatform, updateHazard, hazardRect, updatePickup } from './entities.js';
 import { aabb, clamp } from '../core/utils.js';
@@ -31,6 +31,10 @@ export class World {
     this.hazardScale = 1;
     this.maxFall = PHYS.maxFall;
     this._nearCooldown = new Map();
+    this.edgeWalls = 0;
+    this._edgeCool = 0;
+    this._hugSide = 0;
+    this._hugTime = 0;
     this.ensureGenerated(VIEW.h * 4);
   }
 
@@ -83,6 +87,7 @@ export class World {
     this.palette = BIOMES[this.biome];
 
     this.ensureGenerated(player.y + VIEW.h * 2);
+    this._updateEdge(dt, player, handlers);
 
     for (let i = this.platforms.length - 1; i >= 0; i--) {
       const p = this.platforms[i];
@@ -92,11 +97,12 @@ export class World {
     }
 
     for (const h of this.hazards) updateHazard(h, dt, this.time, player, this.hazardScale);
+    this._edgeShove(dt, player);
 
     const hb = player.hitbox();
     for (let i = this.hazards.length - 1; i >= 0; i--) {
       const h = this.hazards[i];
-      if (h.y < player.y - VIEW.h * 1.7) {
+      if ((h.type === 'wall' && h.state === 'gone') || h.y < player.y - VIEW.h * 1.7) {
         this.hazards.splice(i, 1);
         continue;
       }
@@ -139,6 +145,56 @@ export class World {
     }
   }
 
+  // Camping an edge skips most of the layout, so the well grows a wall out of
+  // whichever side the player leans on, warns, then presses them back inside.
+  _updateEdge(dt, player, handlers) {
+    if (this._edgeCool > 0) this._edgeCool = Math.max(0, this._edgeCool - dt);
+    const cx = player.x + player.w / 2;
+    let side = 0;
+    if (cx < EDGE.hugDist) side = -1;
+    else if (cx > VIEW.w - EDGE.hugDist) side = 1;
+    const live = this.hazards.some((h) => h.type === 'wall');
+    if (live || side === 0 || this.depthM < EDGE.minDepth || this._edgeCool > 0) {
+      this._hugSide = side;
+      this._hugTime = 0;
+      return;
+    }
+    if (side !== this._hugSide) {
+      this._hugSide = side;
+      this._hugTime = 0;
+      return;
+    }
+    this._hugTime += dt;
+    if (this._hugTime < EDGE.triggerTime) return;
+    this._hugTime = 0;
+    this._edgeCool = EDGE.cooldown;
+    const wall = {
+      type: 'wall',
+      side: side < 0 ? 'left' : 'right',
+      y: player.y + player.h / 2 - EDGE.height / 2,
+      h: EDGE.height,
+      depth: 0,
+      t: 0,
+      state: 'warn',
+    };
+    this.hazards.push(wall);
+    this.edgeWalls += 1;
+    handlers?.onEdgeWall?.(wall);
+  }
+
+  // Contact shoves even while invulnerable, so standing inside the wall is never safe.
+  _edgeShove(dt, player) {
+    for (const h of this.hazards) {
+      if (h.type !== 'wall') continue;
+      const r = hazardRect(h);
+      if (!r) continue;
+      const hb = player.hitbox();
+      if (!aabb(hb.x, hb.y, hb.w, hb.h, r.x, r.y, r.w, r.h)) continue;
+      const dir = h.side === 'left' ? 1 : -1;
+      player.x = clamp(player.x + dir * EDGE.push * dt, 14, VIEW.w - 14 - player.w);
+    }
+  }
+
   platformsNear(y) {
     const out = [];
     for (const p of this.platforms) {
@@ -160,6 +216,7 @@ export class World {
     const cx = player.x + player.w / 2;
     const cy = player.y + player.h / 2;
     for (const h of this.hazards) {
+      if (h.type === 'wall') continue;
       const key = h;
       if ((this._nearCooldown.get(key) || 0) > this.time) continue;
       const r = hazardRect(h);

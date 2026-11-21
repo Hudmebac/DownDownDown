@@ -43,6 +43,84 @@ export class Screens {
     }
   }
 
+  // The wordmark occasionally loses its grip: the letters pop, tumble off the
+  // bottom of the screen and drop back into their slots.
+  titleWord(ctx, g, pal, t) {
+    const reduce = !!g.progress.settings.reduce;
+    if (!reduce && this._titleNext === undefined) this._titleNext = t + 6;
+    if (!reduce && t >= this._titleNext) {
+      this._titleAt = t;
+      this._titleNext = t + 9 + Math.random() * 6;
+      this._titleSeeds = [];
+      for (let i = 0; i < 12; i++) {
+        this._titleSeeds.push({
+          vx: (Math.random() - 0.5) * 300,
+          vy: -70 - Math.random() * 150,
+          spin: (Math.random() - 0.5) * 10,
+          lag: Math.random() * 0.14,
+        });
+      }
+    }
+    ctx.save();
+    ctx.translate(88, 0);
+    ctx.textAlign = 'left';
+    ctx.font = font(52, 900);
+    const word = 'DOWN';
+    for (let row = 0; row < 3; row++) {
+      const baseY = 128 + row * 50 + Math.sin(t * 1.3 + row * 0.7) * 3;
+      const sway = Math.sin(t * 0.9 + row) * 5;
+      let x = 0;
+      for (let i = 0; i < word.length; i++) {
+        const ch = word[i];
+        const w = ctx.measureText(ch).width;
+        const o = this.titleOffset(row, i, t);
+        const grad = ctx.createLinearGradient(0, -38, 0, 8);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(1, pal.accent);
+        ctx.save();
+        ctx.globalAlpha = o.alpha;
+        ctx.translate(sway + x + o.dx, baseY + o.dy);
+        ctx.rotate(o.rot);
+        ctx.fillStyle = grad;
+        ctx.shadowColor = alpha(pal.accent, 0.55);
+        ctx.shadowBlur = 26;
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        x += w;
+      }
+    }
+    ctx.restore();
+  }
+
+  // Pure function of time so the fall is testable and never drifts.
+  titleOffset(row, i, t) {
+    const seed = this._titleSeeds && this._titleSeeds[row * 4 + i];
+    if (!seed || this._titleAt === undefined) return { dx: 0, dy: 0, rot: 0, alpha: 1 };
+    const FALL = 1.35;
+    const BACK = 0.9;
+    const k = t - this._titleAt - seed.lag;
+    if (k <= 0) return { dx: 0, dy: 0, rot: 0, alpha: 1 };
+    if (k < FALL) {
+      return {
+        dx: seed.vx * k,
+        dy: seed.vy * k + 600 * k * k,
+        rot: seed.spin * k,
+        alpha: 1 - Math.pow(k / FALL, 3),
+      };
+    }
+    if (k < FALL + BACK) {
+      const r = (k - FALL) / BACK;
+      const e = 1 - Math.pow(1 - r, 3);
+      return {
+        dx: 0,
+        dy: -(1 - e) * 620,
+        rot: seed.spin * 0.35 * (1 - e),
+        alpha: Math.min(1, r * 3),
+      };
+    }
+    return { dx: 0, dy: 0, rot: 0, alpha: 1 };
+  }
+
   _scrim(ctx, strength = 0.72) {
     const grad = ctx.createLinearGradient(0, 0, VIEW.w, 0);
     grad.addColorStop(0, `rgba(4,7,14,${strength})`);
@@ -59,24 +137,7 @@ export class Screens {
     const t = g.time;
     this._scrim(ctx, 0.7);
 
-    ctx.save();
-    ctx.translate(88, 0);
-    ctx.textAlign = 'left';
-    for (let i = 0; i < 3; i++) {
-      const y = 128 + i * 50 + Math.sin(t * 1.3 + i * 0.7) * 3;
-      ctx.save();
-      ctx.translate(Math.sin(t * 0.9 + i) * 5, y);
-      ctx.font = font(52, 900);
-      const grad = ctx.createLinearGradient(0, -38, 0, 8);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(1, pal.accent);
-      ctx.fillStyle = grad;
-      ctx.shadowColor = alpha(pal.accent, 0.55);
-      ctx.shadowBlur = 26;
-      ctx.fillText('DOWN', 0, 0);
-      ctx.restore();
-    }
-    ctx.restore();
+    this.titleWord(ctx, g, pal, t);
 
     ui.text(ctx, 'an endless descent', 88, 268, { size: 15, weight: 600, color: COLORS.muted });
 

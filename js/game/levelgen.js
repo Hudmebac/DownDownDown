@@ -349,6 +349,26 @@ function pLaserGate(b) {
   b.gemLine(VIEW.w / 2, b.cy + 30, VIEW.w / 2, b.cy + 80, 2);
 }
 
+// Ledges pinned to the screen edges, so the sides are not an empty lane to
+// float down. Higher tiers stud some of them with spikes toward the middle.
+function sideShelves(b) {
+  if (!b.rng.chance(0.75)) return;
+  const rows = 3 + (b.tier > 4 ? 1 : 0);
+  const step = CHUNK_H / (rows + 1);
+  let side = b.rng.sign();
+  for (let i = 0; i < rows; i++) {
+    const y = b.cy + step * (i + 1) + b.rng.range(-22, 22);
+    const w = b.rng.range(128, 178);
+    const x = side > 0 ? LEFT : RIGHT - w;
+    const crowded = b.platforms.some((p) => Math.abs(p.y - y) < 30 && p.x < x + w && p.x + p.w > x);
+    if (!crowded) {
+      b.plat(x, y, w, 'solid');
+      if (b.tier > 2 && b.rng.chance(0.35)) b.spike(side > 0 ? x + w - 46 : x + 16, y, 30);
+    }
+    side *= -1;
+  }
+}
+
 const PATTERNS = [
   { fn: pZigzag, weight: () => 3, min: 0 },
   { fn: pShaft, weight: () => 2.4, min: 0 },
@@ -450,6 +470,7 @@ export function buildChunk(seed, index, tier) {
   }
 
   ensurePath(b);
+  sideShelves(b);
 
   if (b.rng.chance(0.16)) b.power(b.rng.range(LEFT + 60, RIGHT - 60), b.cy + b.rng.range(120, CHUNK_H - 160), pickPower(b));
   if (b.rng.chance(0.1)) b.heart(b.rng.range(LEFT + 60, RIGHT - 60), b.cy + b.rng.range(140, CHUNK_H - 180));

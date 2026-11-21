@@ -497,6 +497,24 @@ const STORM = {
   warnRange: 260,
 };
 
+// Living on a screen edge skips most of the layout, so the well pushes back:
+// linger near one side and a wall grows out of it, warns, then shoves you inward.
+const EDGE = {
+  minDepth: 130,
+  hugDist: 118,
+  triggerTime: 0.85,
+  warn: 0.8,
+  extend: 0.24,
+  hold: 1.05,
+  retract: 0.34,
+  depth: 104,
+  height: 320,
+  follow: 420,
+  lead: 70,
+  push: 250,
+  cooldown: 5.5,
+};
+
 const TOUCH = {
   // movement is split: holding anywhere on the left half steers left, the right half steers right
   split: 0.5,
@@ -1869,6 +1887,10 @@ class Audio {
         this.tone({ freq: base * 1.5, dur: 0.12, type: 'sine', gain: 0.07, delay: 0.03 });
         break;
       }
+      case 'wall':
+        this.tone({ freq: 90, to: 58, dur: 0.55, type: 'sawtooth', gain: 0.1 });
+        this.noise({ dur: 0.4, gain: 0.12, filter: 420 });
+        break;
       case 'hurt':
         this.tone({ freq: 260, to: 70, dur: 0.34, type: 'square', gain: 0.16 });
         this.noise({ dur: 0.25, gain: 0.16, filter: 500 });
@@ -2524,6 +2546,26 @@ function pLaserGate(b) {
   b.gemLine(VIEW.w / 2, b.cy + 30, VIEW.w / 2, b.cy + 80, 2);
 }
 
+// Ledges pinned to the screen edges, so the sides are not an empty lane to
+// float down. Higher tiers stud some of them with spikes toward the middle.
+function sideShelves(b) {
+  if (!b.rng.chance(0.75)) return;
+  const rows = 3 + (b.tier > 4 ? 1 : 0);
+  const step = CHUNK_H / (rows + 1);
+  let side = b.rng.sign();
+  for (let i = 0; i < rows; i++) {
+    const y = b.cy + step * (i + 1) + b.rng.range(-22, 22);
+    const w = b.rng.range(128, 178);
+    const x = side > 0 ? LEFT : RIGHT - w;
+    const crowded = b.platforms.some((p) => Math.abs(p.y - y) < 30 && p.x < x + w && p.x + p.w > x);
+    if (!crowded) {
+      b.plat(x, y, w, 'solid');
+      if (b.tier > 2 && b.rng.chance(0.35)) b.spike(side > 0 ? x + w - 46 : x + 16, y, 30);
+    }
+    side *= -1;
+  }
+}
+
 const PATTERNS = [
   { fn: pZigzag, weight: () => 3, min: 0 },
   { fn: pShaft, weight: () => 2.4, min: 0 },
@@ -2625,6 +2667,7 @@ function buildChunk(seed, index, tier) {
   }
 
   ensurePath(b);
+  sideShelves(b);
 
   if (b.rng.chance(0.16)) b.power(b.rng.range(LEFT + 60, RIGHT - 60), b.cy + b.rng.range(120, CHUNK_H - 160), pickPower(b));
   if (b.rng.chance(0.1)) b.heart(b.rng.range(LEFT + 60, RIGHT - 60), b.cy + b.rng.range(140, CHUNK_H - 180));
@@ -2726,6 +2769,33 @@ function updateHazard(h, dt, time, player, scale = 1) {
       h.y += h.vy * dt;
       break;
     }
+    case 'wall': {
+      h.t += dt;
+      // match the fall speed and sit slightly ahead of it, so the wall is
+      // already in the lane when it opens instead of trailing behind the player
+      const fall = Math.max(0, player.vy || 0);
+      const reach = (EDGE.follow + fall) * dt;
+      const target = player.y + player.h / 2 - h.h / 2 + EDGE.lead;
+      h.y += clamp(target - h.y, -reach, reach);
+      const t = h.t - EDGE.warn;
+      if (h.t < EDGE.warn) {
+        h.state = 'warn';
+        h.depth = 0;
+      } else if (t < EDGE.extend) {
+        h.state = 'grow';
+        h.depth = EDGE.depth * (t / EDGE.extend);
+      } else if (t < EDGE.extend + EDGE.hold) {
+        h.state = 'hold';
+        h.depth = EDGE.depth;
+      } else if (t < EDGE.extend + EDGE.hold + EDGE.retract) {
+        h.state = 'shrink';
+        h.depth = EDGE.depth * (1 - (t - EDGE.extend - EDGE.hold) / EDGE.retract);
+      } else {
+        h.state = 'gone';
+        h.depth = 0;
+      }
+      break;
+    }
     default:
       break;
   }
@@ -2739,6 +2809,11 @@ function hazardRect(h) {
       return h.active ? { x: h.x, y: h.y - h.h / 2, w: h.w, h: h.h } : null;
     case 'crusher':
       return { x: h.x, y: h.y, w: h.w, h: h.h };
+    case 'wall':
+      if (!(h.depth > 8)) return null;
+      return h.side === 'left'
+        ? { x: 0, y: h.y, w: h.depth, h: h.h }
+        : { x: VIEW.w - h.depth, y: h.y, w: h.depth, h: h.h };
     default:
       return { x: h.x, y: h.y, w: h.w, h: h.h };
   }
@@ -2944,6 +3019,65 @@ function renderHazard(ctx, h, pal, time) {
       ctx.arc(cx - 6 + 1, cy - 3, 1.3, 0, TAU);
       ctx.arc(cx + 6 + 1, cy - 3, 1.3, 0, TAU);
       ctx.fill();
+      break;
+    }
+    case 'wall': {
+      const left = h.side === 'left';
+      const d = Math.max(0, h.depth);
+      const top = h.y - 26;
+      const bot = h.y + h.h + 26;
+      const warn = h.state === 'warn';
+      const pulse = 0.5 + 0.5 * Math.sin(time * (warn ? 22 : 10));
+      const edgeX = left ? 0 : VIEW.w;
+      const tint = pal.hazard;
+      ctx.save();
+
+      // the seam that throbs before the wall arrives
+      ctx.shadowColor = alpha(tint, 0.85);
+      ctx.shadowBlur = warn ? 12 + pulse * 20 : 20;
+      ctx.fillStyle = alpha(tint, warn ? 0.32 + pulse * 0.55 : 0.85);
+      ctx.fillRect(left ? 0 : VIEW.w - 6, top, 6, bot - top);
+      ctx.shadowBlur = 0;
+
+      if (d > 1) {
+        const g = ctx.createLinearGradient(edgeX, 0, left ? d : VIEW.w - d, 0);
+        g.addColorStop(0, alpha('#ffffff', 0.6));
+        g.addColorStop(0.1, alpha(tint, 0.92));
+        g.addColorStop(0.65, alpha(tint, 0.62));
+        g.addColorStop(1, alpha(tint, 0.16));
+        ctx.fillStyle = g;
+        ctx.fillRect(left ? 0 : VIEW.w - d, top, d, bot - top);
+
+        // inward face: blunt lobes in the organic biomes, blades everywhere else
+        const dir = left ? 1 : -1;
+        const face = left ? d : VIEW.w - d;
+        const soft = pal.id === 'garden' || pal.id === 'abyss';
+        const step = 26;
+        ctx.beginPath();
+        for (let y = top; y < bot; y += step) {
+          ctx.moveTo(face, y);
+          if (soft) ctx.quadraticCurveTo(face + dir * 15, y + step * 0.5, face, y + step);
+          else {
+            ctx.lineTo(face + dir * 14, y + step * 0.5);
+            ctx.lineTo(face, y + step);
+          }
+        }
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        ctx.strokeStyle = alpha('#ffffff', 0.5);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(face, top);
+        ctx.lineTo(face, bot);
+        ctx.stroke();
+
+        if (pal.id === 'ember' || pal.id === 'lastlight') {
+          ctx.fillStyle = alpha(pal.accent2, 0.3 + pulse * 0.25);
+          ctx.fillRect(left ? 0 : VIEW.w - d * 0.55, top, d * 0.55, bot - top);
+        }
+      }
+      ctx.restore();
       break;
     }
     default:
@@ -3161,6 +3295,10 @@ class World {
     this.hazardScale = 1;
     this.maxFall = PHYS.maxFall;
     this._nearCooldown = new Map();
+    this.edgeWalls = 0;
+    this._edgeCool = 0;
+    this._hugSide = 0;
+    this._hugTime = 0;
     this.ensureGenerated(VIEW.h * 4);
   }
 
@@ -3213,6 +3351,7 @@ class World {
     this.palette = BIOMES[this.biome];
 
     this.ensureGenerated(player.y + VIEW.h * 2);
+    this._updateEdge(dt, player, handlers);
 
     for (let i = this.platforms.length - 1; i >= 0; i--) {
       const p = this.platforms[i];
@@ -3222,11 +3361,12 @@ class World {
     }
 
     for (const h of this.hazards) updateHazard(h, dt, this.time, player, this.hazardScale);
+    this._edgeShove(dt, player);
 
     const hb = player.hitbox();
     for (let i = this.hazards.length - 1; i >= 0; i--) {
       const h = this.hazards[i];
-      if (h.y < player.y - VIEW.h * 1.7) {
+      if ((h.type === 'wall' && h.state === 'gone') || h.y < player.y - VIEW.h * 1.7) {
         this.hazards.splice(i, 1);
         continue;
       }
@@ -3269,6 +3409,56 @@ class World {
     }
   }
 
+  // Camping an edge skips most of the layout, so the well grows a wall out of
+  // whichever side the player leans on, warns, then presses them back inside.
+  _updateEdge(dt, player, handlers) {
+    if (this._edgeCool > 0) this._edgeCool = Math.max(0, this._edgeCool - dt);
+    const cx = player.x + player.w / 2;
+    let side = 0;
+    if (cx < EDGE.hugDist) side = -1;
+    else if (cx > VIEW.w - EDGE.hugDist) side = 1;
+    const live = this.hazards.some((h) => h.type === 'wall');
+    if (live || side === 0 || this.depthM < EDGE.minDepth || this._edgeCool > 0) {
+      this._hugSide = side;
+      this._hugTime = 0;
+      return;
+    }
+    if (side !== this._hugSide) {
+      this._hugSide = side;
+      this._hugTime = 0;
+      return;
+    }
+    this._hugTime += dt;
+    if (this._hugTime < EDGE.triggerTime) return;
+    this._hugTime = 0;
+    this._edgeCool = EDGE.cooldown;
+    const wall = {
+      type: 'wall',
+      side: side < 0 ? 'left' : 'right',
+      y: player.y + player.h / 2 - EDGE.height / 2,
+      h: EDGE.height,
+      depth: 0,
+      t: 0,
+      state: 'warn',
+    };
+    this.hazards.push(wall);
+    this.edgeWalls += 1;
+    handlers?.onEdgeWall?.(wall);
+  }
+
+  // Contact shoves even while invulnerable, so standing inside the wall is never safe.
+  _edgeShove(dt, player) {
+    for (const h of this.hazards) {
+      if (h.type !== 'wall') continue;
+      const r = hazardRect(h);
+      if (!r) continue;
+      const hb = player.hitbox();
+      if (!aabb(hb.x, hb.y, hb.w, hb.h, r.x, r.y, r.w, r.h)) continue;
+      const dir = h.side === 'left' ? 1 : -1;
+      player.x = clamp(player.x + dir * EDGE.push * dt, 14, VIEW.w - 14 - player.w);
+    }
+  }
+
   platformsNear(y) {
     const out = [];
     for (const p of this.platforms) {
@@ -3290,6 +3480,7 @@ class World {
     const cx = player.x + player.w / 2;
     const cy = player.y + player.h / 2;
     for (const h of this.hazards) {
+      if (h.type === 'wall') continue;
       const key = h;
       if ((this._nearCooldown.get(key) || 0) > this.time) continue;
       const r = hazardRect(h);
@@ -7159,6 +7350,84 @@ class Screens {
     }
   }
 
+  // The wordmark occasionally loses its grip: the letters pop, tumble off the
+  // bottom of the screen and drop back into their slots.
+  titleWord(ctx, g, pal, t) {
+    const reduce = !!g.progress.settings.reduce;
+    if (!reduce && this._titleNext === undefined) this._titleNext = t + 6;
+    if (!reduce && t >= this._titleNext) {
+      this._titleAt = t;
+      this._titleNext = t + 9 + Math.random() * 6;
+      this._titleSeeds = [];
+      for (let i = 0; i < 12; i++) {
+        this._titleSeeds.push({
+          vx: (Math.random() - 0.5) * 300,
+          vy: -70 - Math.random() * 150,
+          spin: (Math.random() - 0.5) * 10,
+          lag: Math.random() * 0.14,
+        });
+      }
+    }
+    ctx.save();
+    ctx.translate(88, 0);
+    ctx.textAlign = 'left';
+    ctx.font = font(52, 900);
+    const word = 'DOWN';
+    for (let row = 0; row < 3; row++) {
+      const baseY = 128 + row * 50 + Math.sin(t * 1.3 + row * 0.7) * 3;
+      const sway = Math.sin(t * 0.9 + row) * 5;
+      let x = 0;
+      for (let i = 0; i < word.length; i++) {
+        const ch = word[i];
+        const w = ctx.measureText(ch).width;
+        const o = this.titleOffset(row, i, t);
+        const grad = ctx.createLinearGradient(0, -38, 0, 8);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(1, pal.accent);
+        ctx.save();
+        ctx.globalAlpha = o.alpha;
+        ctx.translate(sway + x + o.dx, baseY + o.dy);
+        ctx.rotate(o.rot);
+        ctx.fillStyle = grad;
+        ctx.shadowColor = alpha(pal.accent, 0.55);
+        ctx.shadowBlur = 26;
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        x += w;
+      }
+    }
+    ctx.restore();
+  }
+
+  // Pure function of time so the fall is testable and never drifts.
+  titleOffset(row, i, t) {
+    const seed = this._titleSeeds && this._titleSeeds[row * 4 + i];
+    if (!seed || this._titleAt === undefined) return { dx: 0, dy: 0, rot: 0, alpha: 1 };
+    const FALL = 1.35;
+    const BACK = 0.9;
+    const k = t - this._titleAt - seed.lag;
+    if (k <= 0) return { dx: 0, dy: 0, rot: 0, alpha: 1 };
+    if (k < FALL) {
+      return {
+        dx: seed.vx * k,
+        dy: seed.vy * k + 600 * k * k,
+        rot: seed.spin * k,
+        alpha: 1 - Math.pow(k / FALL, 3),
+      };
+    }
+    if (k < FALL + BACK) {
+      const r = (k - FALL) / BACK;
+      const e = 1 - Math.pow(1 - r, 3);
+      return {
+        dx: 0,
+        dy: -(1 - e) * 620,
+        rot: seed.spin * 0.35 * (1 - e),
+        alpha: Math.min(1, r * 3),
+      };
+    }
+    return { dx: 0, dy: 0, rot: 0, alpha: 1 };
+  }
+
   _scrim(ctx, strength = 0.72) {
     const grad = ctx.createLinearGradient(0, 0, VIEW.w, 0);
     grad.addColorStop(0, `rgba(4,7,14,${strength})`);
@@ -7175,24 +7444,7 @@ class Screens {
     const t = g.time;
     this._scrim(ctx, 0.7);
 
-    ctx.save();
-    ctx.translate(88, 0);
-    ctx.textAlign = 'left';
-    for (let i = 0; i < 3; i++) {
-      const y = 128 + i * 50 + Math.sin(t * 1.3 + i * 0.7) * 3;
-      ctx.save();
-      ctx.translate(Math.sin(t * 0.9 + i) * 5, y);
-      ctx.font = font(52, 900);
-      const grad = ctx.createLinearGradient(0, -38, 0, 8);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(1, pal.accent);
-      ctx.fillStyle = grad;
-      ctx.shadowColor = alpha(pal.accent, 0.55);
-      ctx.shadowBlur = 26;
-      ctx.fillText('DOWN', 0, 0);
-      ctx.restore();
-    }
-    ctx.restore();
+    this.titleWord(ctx, g, pal, t);
 
     ui.text(ctx, 'an endless descent', 88, 268, { size: 15, weight: 600, color: COLORS.muted });
 
@@ -8023,12 +8275,15 @@ class Game {
     ];
     this._lookMutedBefore = null;
     this._lookMuteRestore = null;
+    this._dadBuf = '';
+    this._dadSig = this._decode([0x73, 0x76, 0x73, 0x73, 0x76, 0x73]);
 
     this.handlers = {
       onGem: (p) => this.onGem(p),
       onHeart: () => this.onHeart(),
       onPower: (p) => this.onPower(p),
       onHurt: (h) => this.onHurt(h),
+      onEdgeWall: (w) => this.onEdgeWall(w),
       onBreak: (p) => this.onBreak(p),
     };
 
@@ -8343,6 +8598,33 @@ class Game {
     if (this.run.hearts <= 0) this.endRun();
   }
 
+  // A shared secret: type "dad dad" and the well pays out, as often as you like.
+  dadShards() {
+    this.progress.data.shards += 1000;
+    this.progress.save();
+    this.audio.sfx('buy');
+    this.fx.flashIt('#ffd166', 0.26);
+    this.toast('+1,000 shards', '#ffd166');
+    if (this.state === 'PLAYING' && this.player) {
+      const px = this.player.x + this.player.w / 2;
+      const py = this.player.y + this.player.h / 2;
+      this.fx.ring(px, py, { color: '#ffd166', r0: 16, r1: 120, life: 0.5, width: 4 });
+      this.fx.burst(px, py, { count: 20, speed: 280, life: 0.8, size: 3.2, color: '#ffd166', gravity: 240 });
+    }
+  }
+
+  onEdgeWall(wall) {
+    if (!this.run) return;
+    this.audio.sfx('wall');
+    this.fx.shakeIt(this.shakeEnabled() ? 6 : 0);
+    if (!this._wallTip) {
+      this._wallTip = true;
+      this.toast('The well walls close in — stop clinging to the edges', this.palette.hazard);
+    } else {
+      this.toast(`${wall.side === 'left' ? 'LEFT' : 'RIGHT'} WALL`, this.palette.hazard);
+    }
+  }
+
   endRun() {
     if (!this.run || this.state !== 'PLAYING') return;
     const r = this.run;
@@ -8394,6 +8676,11 @@ class Game {
             this.fx.flashIt('#ffd166', 0.2);
             this.toast('A golden warmth settles over you', '#ffd166');
           }
+        }
+        this._dadBuf = (this._dadBuf + key).slice(-this._dadSig.length);
+        if (this._dadBuf === this._dadSig) {
+          this._dadBuf = '';
+          this.dadShards();
         }
         this._lookBuf = (this._lookBuf + key).slice(-5);
         if (this._lookBuf === this._lookCodes[0].sig[0]) this._lookMutedBefore = this.audio.muted;

@@ -58,12 +58,15 @@ export class Game {
     ];
     this._lookMutedBefore = null;
     this._lookMuteRestore = null;
+    this._dadBuf = '';
+    this._dadSig = this._decode([0x73, 0x76, 0x73, 0x73, 0x76, 0x73]);
 
     this.handlers = {
       onGem: (p) => this.onGem(p),
       onHeart: () => this.onHeart(),
       onPower: (p) => this.onPower(p),
       onHurt: (h) => this.onHurt(h),
+      onEdgeWall: (w) => this.onEdgeWall(w),
       onBreak: (p) => this.onBreak(p),
     };
 
@@ -378,6 +381,33 @@ export class Game {
     if (this.run.hearts <= 0) this.endRun();
   }
 
+  // A shared secret: type "dad dad" and the well pays out, as often as you like.
+  dadShards() {
+    this.progress.data.shards += 1000;
+    this.progress.save();
+    this.audio.sfx('buy');
+    this.fx.flashIt('#ffd166', 0.26);
+    this.toast('+1,000 shards', '#ffd166');
+    if (this.state === 'PLAYING' && this.player) {
+      const px = this.player.x + this.player.w / 2;
+      const py = this.player.y + this.player.h / 2;
+      this.fx.ring(px, py, { color: '#ffd166', r0: 16, r1: 120, life: 0.5, width: 4 });
+      this.fx.burst(px, py, { count: 20, speed: 280, life: 0.8, size: 3.2, color: '#ffd166', gravity: 240 });
+    }
+  }
+
+  onEdgeWall(wall) {
+    if (!this.run) return;
+    this.audio.sfx('wall');
+    this.fx.shakeIt(this.shakeEnabled() ? 6 : 0);
+    if (!this._wallTip) {
+      this._wallTip = true;
+      this.toast('The well walls close in — stop clinging to the edges', this.palette.hazard);
+    } else {
+      this.toast(`${wall.side === 'left' ? 'LEFT' : 'RIGHT'} WALL`, this.palette.hazard);
+    }
+  }
+
   endRun() {
     if (!this.run || this.state !== 'PLAYING') return;
     const r = this.run;
@@ -429,6 +459,11 @@ export class Game {
             this.fx.flashIt('#ffd166', 0.2);
             this.toast('A golden warmth settles over you', '#ffd166');
           }
+        }
+        this._dadBuf = (this._dadBuf + key).slice(-this._dadSig.length);
+        if (this._dadBuf === this._dadSig) {
+          this._dadBuf = '';
+          this.dadShards();
         }
         this._lookBuf = (this._lookBuf + key).slice(-5);
         if (this._lookBuf === this._lookCodes[0].sig[0]) this._lookMutedBefore = this.audio.muted;

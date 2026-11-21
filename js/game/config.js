@@ -72,6 +72,24 @@ export const STORM = {
   warnRange: 260,
 };
 
+// Living on a screen edge skips most of the layout, so the well pushes back:
+// linger near one side and a wall grows out of it, warns, then shoves you inward.
+export const EDGE = {
+  minDepth: 130,
+  hugDist: 118,
+  triggerTime: 0.85,
+  warn: 0.8,
+  extend: 0.24,
+  hold: 1.05,
+  retract: 0.34,
+  depth: 104,
+  height: 320,
+  follow: 420,
+  lead: 70,
+  push: 250,
+  cooldown: 5.5,
+};
+
 export const TOUCH = {
   // movement is split: holding anywhere on the left half steers left, the right half steers right
   split: 0.5,
