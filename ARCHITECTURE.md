@@ -69,7 +69,7 @@ Patterns unlock as `tierForDepth` rises (`floor(depth/110)`, capped at 14). `bui
 - Perfect landing: land with no jumps used and low horizontal speed for bonus score.
 - Powerups: shield, magnet, slow time (0.42x hazard speed), feather/glide.
 - Depth in metres = world px / 32. Biome thresholds live in `BIOMES[].at`; eight biomes run from The Skywell to World's Core at 3700m.
-- **Descents:** every `CYCLE.depth` (3800m) a full pass finishes and the next descent starts. Biomes and pattern tiers reset, chunk seeds are offset by cycle, the storm gains 12% per descent (capped at 430px/s) and hazards 10% (capped at 1.8x). Total depth keeps counting, so the run never completes — it just gets faster.
+- **Descents:** every `CYCLE.depth` (3800m) a full pass finishes and the next descent starts. Biomes and pattern tiers reset, chunk seeds are offset by cycle, the storm keeps one steady pace at every depth (it only hurries when you have opened a big lead) and hazards sharpen 10% per descent (capped at 1.8x). Total depth keeps counting, so the run never completes — the hazards just bite harder.
 - 3 hearts, max 4; run ends at 0. Score → shards → shop/missions.
 - Shard payout is itemised: depth, gems, score, perfect landings, biomes (`ECONOMY`).
 

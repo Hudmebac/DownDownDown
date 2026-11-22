@@ -54,22 +54,24 @@ export const ECONOMY = {
 };
 
 // One full pass through all eight biomes. Finish it and the next descent
-// begins: same world, new layouts, faster storm and hazards, depth keeps going.
+// begins: same world, new layouts, sharper hazards, depth keeps going.
 export const CYCLE = {
   depth: 3800,
-  speedStep: 0.07,
   hazardStep: 0.1,
-  maxStorm: 430,
   maxHazard: 1.8,
 };
 
+// The storm keeps one pace at every depth, so falling buys distance and standing
+// still spends it. Outrun it by too much and it hurries back into view rather
+// than fading into a forgotten fog bank far above.
 export const STORM = {
   startAhead: 900,
-  baseSpeed: 100,
-  speedPerMeter: 0.14,
-  maxSpeed: 300,
+  baseSpeed: 118,
+  leash: 1400,
+  leashGain: 1,
+  maxSpeed: 760,
   damageInterval: 1.3,
-  warnRange: 340,
+  warnRange: 900,
   // A fresh descent opens with the storm briefly losing ground while you drop
   // into the new layout, so the boundary is a breather rather than a shove.
   cycleGrace: 3.2,

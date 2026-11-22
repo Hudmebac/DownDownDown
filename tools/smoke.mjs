@@ -149,6 +149,7 @@ assert.equal(BIOMES[7].at, 3700, 'core biome sits at 3700m');
 
 const cycleWorld = new World();
 cycleWorld.bestY = (CYCLE.depth + 20) * 32;
+cycleWorld.stormY = game.player.y - 200;
 cycleWorld.update(1 / 60, game.player, game.handlers);
 assert.equal(cycleWorld.cycle, 1, 'second descent starts after a full set');
 assert.equal(cycleWorld.biome, 0, 'biomes restart with each descent');
@@ -156,9 +157,24 @@ const openedGrace = cycleWorld.stormSpeed;
 cycleWorld.stormGrace = 0;
 cycleWorld.update(1 / 60, game.player, game.handlers);
 assert.ok(openedGrace < cycleWorld.stormSpeed * 0.5, 'a new descent stuns the storm');
-assert.ok(cycleWorld.stormSpeed > 100, 'storm speeds up with the set');
-assert.ok(cycleWorld.hazardScale > 1, 'hazards speed up with the set');
-note(`cycle check: descent ${cycleWorld.cycle + 1}, storm opens at ${openedGrace.toFixed(0)}px/s, settles at ${cycleWorld.stormSpeed.toFixed(0)}px/s, hazards x${cycleWorld.hazardScale.toFixed(2)}`);
+assert.ok(cycleWorld.stormSpeed > 100, 'the storm keeps closing in');
+assert.ok(cycleWorld.hazardScale > 1, 'hazards sharpen with each descent');
+
+// The storm holds one pace at every depth, so only falling buys distance.
+const paceAt = (depthM, leadPx) => {
+  const w = new World();
+  w.bestY = depthM * 32;
+  w.stormY = game.player.y - leadPx;
+  w.update(1 / 60, game.player, game.handlers);
+  w.stormGrace = 0;
+  w.update(1 / 60, game.player, game.handlers);
+  return w.stormSpeed;
+};
+const nearPace = paceAt(300, 200);
+assert.equal(Math.round(paceAt(7900, 200)), Math.round(nearPace), 'the storm keeps one pace at every depth');
+const farPace = paceAt(300, 2800);
+assert.ok(farPace > nearPace * 2, `a storm left far behind hurries back (${farPace.toFixed(0)} vs ${nearPace.toFixed(0)})`);
+note(`storm check: ${nearPace.toFixed(0)}px/s at 200px out, ${farPace.toFixed(0)}px/s when far behind, opener ${openedGrace.toFixed(0)}px/s`);
 
 const biome = BIOMES[2];
 assert.ok(biome, 'biome config exists');

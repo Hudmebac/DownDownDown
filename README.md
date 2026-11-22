@@ -49,7 +49,7 @@
 
 ### ⛈️ The Storm
 
-- **The storm is the clock.** It descends continuously and punishes hovering, then speeds up 12% per descent (hazards 10%).
+- **The storm is the clock.** It descends at one steady pace at every depth and always comes back for anyone who hovers: falling buys distance, standing still spends it. Hazards sharpen 10% per descent.
 
 ### 💎 Scoring
 

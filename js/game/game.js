@@ -599,8 +599,9 @@ export class Game {
         this.onHurt({ x: player.x, w: player.w });
         this.toast('THE STORM HAS YOU', '#ff7a9a');
       }
-      const pulse = 0.5 + 0.5 * Math.sin(this.time * 14);
-      this.fx.flashIt('#ff2d5e', 0.06 + pulse * 0.05);
+      // a slow red breath rather than a strobe, so being caught reads as pressure
+      const breath = 0.5 + 0.5 * Math.sin(this.time * 2.6);
+      this.fx.flashIt('#ff2d5e', 0.05 + breath * 0.04);
     } else {
       run.stormTimer = Math.min(run.stormTimer, STORM.damageInterval * 0.6);
     }
@@ -622,8 +623,8 @@ export class Game {
         this.palettePrev = this.palette;
         this.paletteMix = 0;
       }
-      this.biomeBanner = { name: `DESCENT ${set}`, tagline: 'Same world, sharper edges — everything is faster', t: 4, max: 4 };
-      this.toast(`Descent ${set} · the world speeds up`, '#ffd166');
+      this.biomeBanner = { name: `DESCENT ${set}`, tagline: 'Same world, sharper edges — the hazards bite harder', t: 4, max: 4 };
+      this.toast(`Descent ${set} · same pace, sharper edges`, '#ffd166');
       this.audio.sfx('biome');
       this.fx.flashIt('#ffd166', 0.22);
     }

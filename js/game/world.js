@@ -82,9 +82,11 @@ export class World {
     // crawling while you drop into the fresh layout, then picks the pace back up.
     if (this.cycleChanged) this.stormGrace = STORM.cycleGrace;
     else this.stormGrace = Math.max(0, this.stormGrace - dt);
-    const setSpeed = (STORM.baseSpeed + this.localDepth * STORM.speedPerMeter) * (1 + this.cycle * CYCLE.speedStep);
+    // One pace at every depth; a storm left far behind hurries to catch up.
+    const lead = player.y - this.stormY;
+    const pull = Math.max(0, lead - STORM.leash) * STORM.leashGain;
     const grace = this.stormGrace > 0 ? STORM.graceScale : 1;
-    this.stormSpeed = Math.min(CYCLE.maxStorm, Math.max(STORM.baseSpeed, setSpeed)) * grace;
+    this.stormSpeed = Math.min(STORM.maxSpeed, STORM.baseSpeed + pull) * grace;
     this.stormY += this.stormSpeed * dt;
 
     const idx = biomeIndexAt(this.localDepth);

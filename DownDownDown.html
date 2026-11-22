@@ -479,22 +479,24 @@ const ECONOMY = {
 };
 
 // One full pass through all eight biomes. Finish it and the next descent
-// begins: same world, new layouts, faster storm and hazards, depth keeps going.
+// begins: same world, new layouts, sharper hazards, depth keeps going.
 const CYCLE = {
   depth: 3800,
-  speedStep: 0.07,
   hazardStep: 0.1,
-  maxStorm: 430,
   maxHazard: 1.8,
 };
 
+// The storm keeps one pace at every depth, so falling buys distance and standing
+// still spends it. Outrun it by too much and it hurries back into view rather
+// than fading into a forgotten fog bank far above.
 const STORM = {
   startAhead: 900,
-  baseSpeed: 100,
-  speedPerMeter: 0.14,
-  maxSpeed: 300,
+  baseSpeed: 118,
+  leash: 1400,
+  leashGain: 1,
+  maxSpeed: 760,
   damageInterval: 1.3,
-  warnRange: 340,
+  warnRange: 900,
   // A fresh descent opens with the storm briefly losing ground while you drop
   // into the new layout, so the boundary is a breather rather than a shove.
   cycleGrace: 3.2,
@@ -3416,9 +3418,11 @@ class World {
     // crawling while you drop into the fresh layout, then picks the pace back up.
     if (this.cycleChanged) this.stormGrace = STORM.cycleGrace;
     else this.stormGrace = Math.max(0, this.stormGrace - dt);
-    const setSpeed = (STORM.baseSpeed + this.localDepth * STORM.speedPerMeter) * (1 + this.cycle * CYCLE.speedStep);
+    // One pace at every depth; a storm left far behind hurries to catch up.
+    const lead = player.y - this.stormY;
+    const pull = Math.max(0, lead - STORM.leash) * STORM.leashGain;
     const grace = this.stormGrace > 0 ? STORM.graceScale : 1;
-    this.stormSpeed = Math.min(CYCLE.maxStorm, Math.max(STORM.baseSpeed, setSpeed)) * grace;
+    this.stormSpeed = Math.min(STORM.maxSpeed, STORM.baseSpeed + pull) * grace;
     this.stormY += this.stormSpeed * dt;
 
     const idx = biomeIndexAt(this.localDepth);
@@ -7285,20 +7289,24 @@ class HUD {
       size: 9, weight: 800, color: dashReady >= 1 ? '#08101c' : COLORS.muted,
     });
 
+    // The band rises with the storm instead of snapping on, and the words wait
+    // until it is genuinely closing, so the warning cannot strobe.
     const warn = g.world.stormWarning(g.player);
-    if (warn > 0.02) {
-      const bandH = 26 + warn * 46;
+    if (warn > 0.01) {
+      const bandH = 22 + warn * 46;
       const grad = ctx.createLinearGradient(0, 0, 0, bandH);
-      grad.addColorStop(0, `rgba(40,4,30,${0.35 + warn * 0.5})`);
+      grad.addColorStop(0, `rgba(40,4,30,${warn * (0.4 + warn * 0.5)})`);
       grad.addColorStop(1, 'rgba(40,4,30,0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, VIEW.w, bandH);
-      ctx.textAlign = 'center';
-      const pulse = 0.6 + 0.4 * Math.sin(t * 9);
-      g.ui.text(ctx, warn > 0.65 ? 'THE STORM IS ON YOU' : 'THE STORM IS CLOSING IN', VIEW.w / 2, 32, {
-        size: 13, weight: 900, color: `rgba(255,120,150,${pulse})`, align: 'center',
-      });
-      ctx.textAlign = 'left';
+      if (warn > 0.35) {
+        const pulse = 0.7 + 0.3 * Math.sin(t * 4);
+        ctx.textAlign = 'center';
+        g.ui.text(ctx, warn > 0.7 ? 'THE STORM IS ON YOU' : 'THE STORM IS CLOSING IN', VIEW.w / 2, 32, {
+          size: 13, weight: 900, color: `rgba(255,120,150,${pulse})`, align: 'center',
+        });
+        ctx.textAlign = 'left';
+      }
     }
 
     if (g.biomeBanner && g.biomeBanner.t > 0) {
@@ -8937,8 +8945,9 @@ class Game {
         this.onHurt({ x: player.x, w: player.w });
         this.toast('THE STORM HAS YOU', '#ff7a9a');
       }
-      const pulse = 0.5 + 0.5 * Math.sin(this.time * 14);
-      this.fx.flashIt('#ff2d5e', 0.06 + pulse * 0.05);
+      // a slow red breath rather than a strobe, so being caught reads as pressure
+      const breath = 0.5 + 0.5 * Math.sin(this.time * 2.6);
+      this.fx.flashIt('#ff2d5e', 0.05 + breath * 0.04);
     } else {
       run.stormTimer = Math.min(run.stormTimer, STORM.damageInterval * 0.6);
     }
@@ -8960,8 +8969,8 @@ class Game {
         this.palettePrev = this.palette;
         this.paletteMix = 0;
       }
-      this.biomeBanner = { name: `DESCENT ${set}`, tagline: 'Same world, sharper edges — everything is faster', t: 4, max: 4 };
-      this.toast(`Descent ${set} · the world speeds up`, '#ffd166');
+      this.biomeBanner = { name: `DESCENT ${set}`, tagline: 'Same world, sharper edges — the hazards bite harder', t: 4, max: 4 };
+      this.toast(`Descent ${set} · same pace, sharper edges`, '#ffd166');
       this.audio.sfx('biome');
       this.fx.flashIt('#ffd166', 0.22);
     }

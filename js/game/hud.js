@@ -101,20 +101,24 @@ export class HUD {
       size: 9, weight: 800, color: dashReady >= 1 ? '#08101c' : COLORS.muted,
     });
 
+    // The band rises with the storm instead of snapping on, and the words wait
+    // until it is genuinely closing, so the warning cannot strobe.
     const warn = g.world.stormWarning(g.player);
-    if (warn > 0.02) {
-      const bandH = 26 + warn * 46;
+    if (warn > 0.01) {
+      const bandH = 22 + warn * 46;
       const grad = ctx.createLinearGradient(0, 0, 0, bandH);
-      grad.addColorStop(0, `rgba(40,4,30,${0.35 + warn * 0.5})`);
+      grad.addColorStop(0, `rgba(40,4,30,${warn * (0.4 + warn * 0.5)})`);
       grad.addColorStop(1, 'rgba(40,4,30,0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, VIEW.w, bandH);
-      ctx.textAlign = 'center';
-      const pulse = 0.6 + 0.4 * Math.sin(t * 9);
-      g.ui.text(ctx, warn > 0.65 ? 'THE STORM IS ON YOU' : 'THE STORM IS CLOSING IN', VIEW.w / 2, 32, {
-        size: 13, weight: 900, color: `rgba(255,120,150,${pulse})`, align: 'center',
-      });
-      ctx.textAlign = 'left';
+      if (warn > 0.35) {
+        const pulse = 0.7 + 0.3 * Math.sin(t * 4);
+        ctx.textAlign = 'center';
+        g.ui.text(ctx, warn > 0.7 ? 'THE STORM IS ON YOU' : 'THE STORM IS CLOSING IN', VIEW.w / 2, 32, {
+          size: 13, weight: 900, color: `rgba(255,120,150,${pulse})`, align: 'center',
+        });
+        ctx.textAlign = 'left';
+      }
     }
 
     if (g.biomeBanner && g.biomeBanner.t > 0) {
