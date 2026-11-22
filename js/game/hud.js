@@ -1,4 +1,4 @@
-import { POWERUPS, STORM, VIEW, touchLayout } from './config.js';
+import { POWERUPS, STORM, VIEW, padScale, touchLayout } from './config.js';
 import { TAU, alpha, clamp, fmt, rr } from '../core/utils.js';
 import { COLORS, font } from './ui.js';
 import { drawIcon } from './entities.js';
@@ -157,9 +157,11 @@ export class HUD {
 
   renderTouch(ctx, pal) {
     const g = this.game;
-    const boxes = touchLayout(g.progress.settings.hand);
+    const size = g.progress.settings.pad;
+    const s = padScale(size);
+    const boxes = touchLayout(g.progress.settings.hand, size);
     const touch = g.input.touch;
-    const pad = (b, active, radius = 26) => {
+    const pad = (b, active, radius = 26 * s) => {
       ctx.fillStyle = active ? alpha(pal.accent, 0.26) : 'rgba(255,255,255,0.07)';
       rr(ctx, b.x, b.y, b.w, b.h, radius);
       ctx.fill();
@@ -173,18 +175,18 @@ export class HUD {
     for (const name of ['left', 'right']) {
       const b = boxes[name];
       const held = touch[name];
-      pad(b, held, 24);
+      pad(b, held, 24 * s);
       const dir = name === 'left' ? -1 : 1;
       const cx = b.x + b.w / 2;
       const cy = b.y + b.h / 2;
       ctx.strokeStyle = alpha('#ffffff', held ? 0.95 : 0.6);
-      ctx.lineWidth = 4.5;
+      ctx.lineWidth = 4.5 * s;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
-      ctx.moveTo(cx + dir * -8, cy - 16);
-      ctx.lineTo(cx + dir * 12, cy);
-      ctx.lineTo(cx + dir * -8, cy + 16);
+      ctx.moveTo(cx + dir * -8 * s, cy - 16 * s);
+      ctx.lineTo(cx + dir * 12 * s, cy);
+      ctx.lineTo(cx + dir * -8 * s, cy + 16 * s);
       ctx.stroke();
       ctx.lineCap = 'butt';
       ctx.lineJoin = 'miter';
@@ -200,7 +202,7 @@ export class HUD {
       ctx.textBaseline = 'alphabetic';
       ctx.textAlign = 'left';
     };
-    labelled(boxes.dash, 'DASH', 13, touch.dash);
-    labelled(boxes.jump, 'JUMP', 18, touch.jump);
+    labelled(boxes.dash, 'DASH', 13 * s, touch.dash);
+    labelled(boxes.jump, 'JUMP', 18 * s, touch.jump);
   }
 }

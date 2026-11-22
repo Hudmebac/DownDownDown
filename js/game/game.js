@@ -16,7 +16,7 @@ export class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.input = new Input(canvas, () => this.progress.settings.hand);
+    this.input = new Input(canvas, () => this.progress.settings.hand, () => this.progress.settings.pad);
     this.profiles = new ProfileStore();
     this.progress = new Progress(this.profiles);
     this.profileEditor = null;

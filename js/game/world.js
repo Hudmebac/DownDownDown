@@ -22,6 +22,7 @@ export class World {
     this.bestY = 0;
     this.stormY = -STORM.startAhead;
     this.stormSpeed = STORM.baseSpeed;
+    this.stormGrace = 0;
     this.biome = 0;
     this.palette = BIOMES[0];
     this.biomeChanged = false;
@@ -77,8 +78,13 @@ export class World {
     const hazardBoost = 1 + Math.min(0.8, this.cycle * CYCLE.hazardStep);
     this.hazardScale = Math.min(CYCLE.maxHazard, (player.powerups.slow > 0 ? 0.42 : 1) * hazardBoost);
     this.maxFall = PHYS.maxFall + Math.min(90, this.depthM * 0.08);
+    // Crossing into a new descent stuns the storm for a moment: it keeps
+    // crawling while you drop into the fresh layout, then picks the pace back up.
+    if (this.cycleChanged) this.stormGrace = STORM.cycleGrace;
+    else this.stormGrace = Math.max(0, this.stormGrace - dt);
     const setSpeed = (STORM.baseSpeed + this.localDepth * STORM.speedPerMeter) * (1 + this.cycle * CYCLE.speedStep);
-    this.stormSpeed = Math.min(CYCLE.maxStorm, Math.max(STORM.baseSpeed, setSpeed));
+    const grace = this.stormGrace > 0 ? STORM.graceScale : 1;
+    this.stormSpeed = Math.min(CYCLE.maxStorm, Math.max(STORM.baseSpeed, setSpeed)) * grace;
     this.stormY += this.stormSpeed * dt;
 
     const idx = biomeIndexAt(this.localDepth);

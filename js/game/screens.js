@@ -1,4 +1,4 @@
-import { CHARACTERS, TRAILS, VIEW } from './config.js';
+import { CHARACTERS, PAD_SIZES, TRAILS, VIEW } from './config.js';
 import { MAX_PROFILES } from './profiles.js';
 import { COLORS, font } from './ui.js';
 import { TAU, alpha, clamp, fmt, rr } from '../core/utils.js';
@@ -253,7 +253,7 @@ export class Screens {
     ui.text(ctx, 'Controls on the left · the story of the Downward Kids on the right', 92, 108, {
       size: 10.5, weight: 500, color: COLORS.muted,
     });
-    ui.text(ctx, 'On a phone: one thumb steers with the arrow pads, the other taps JUMP / DASH. Swap sides in Settings.', 92, 126, {
+    ui.text(ctx, 'On a phone: one thumb steers with the arrow pads, the other taps JUMP / DASH. Sides and size in Settings.', 92, 126, {
       size: 10, weight: 600, color: alpha(pal.accent, 0.85),
     });
 
@@ -734,7 +734,7 @@ export class Screens {
     const s = g.progress.settings;
     ctx.fillStyle = 'rgba(4,7,14,0.82)';
     ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-    ui.panel(ctx, 250, 86, 460, 488, { radius: 20 });
+    ui.panel(ctx, 250, 80, 460, 506, { radius: 20 });
     ui.text(ctx, 'SETTINGS', 290, 134, { size: 24, weight: 900 });
 
     ui.text(ctx, 'MUSIC', 290, 184, { size: 12, weight: 800, color: COLORS.muted });
@@ -793,25 +793,43 @@ export class Screens {
       size: 9.5, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
+    const setPad = (pad) => {
+      if ((s.pad || 'normal') === pad) return;
+      s.pad = pad;
+      g.progress.save();
+      g.audio.sfx('ui');
+      g.input.reset();
+    };
+    const padNow = PAD_SIZES.includes(s.pad) ? s.pad : 'normal';
+    ui.text(ctx, 'PAD SIZE', 290, 414, { size: 12, weight: 800, color: COLORS.muted });
+    PAD_SIZES.forEach((id, i) => {
+      if (ui.button(ctx, 470 + i * 82, 398, 74, 28, id.toUpperCase(), {
+        size: 8.5, id: `pad-${id}`, variant: padNow === id ? 'primary' : 'secondary',
+      })) setPad(id);
+    });
+    ui.text(ctx, 'Bigger pads are easier to hit with a thumb.', 290, 438, {
+      size: 9.5, weight: 500, color: 'rgba(238,244,255,0.45)',
+    });
+
     const mobileNow = g.mobileView;
-    ui.text(ctx, 'DISPLAY', 290, 414, { size: 12, weight: 800, color: COLORS.muted });
-    if (ui.button(ctx, 290, 424, 180, 32, 'DESKTOP', { size: 11, id: 'display-desktop', variant: mobileNow ? 'secondary' : 'primary' })) {
+    ui.text(ctx, 'DISPLAY', 290, 462, { size: 12, weight: 800, color: COLORS.muted });
+    if (ui.button(ctx, 290, 472, 180, 32, 'DESKTOP', { size: 11, id: 'display-desktop', variant: mobileNow ? 'secondary' : 'primary' })) {
       g.setDisplay('desktop');
     }
-    if (ui.button(ctx, 482, 424, 190, 32, 'MOBILE APP', { size: 11, id: 'display-mobile', variant: mobileNow ? 'primary' : 'secondary' })) {
+    if (ui.button(ctx, 482, 472, 190, 32, 'MOBILE APP', { size: 11, id: 'display-mobile', variant: mobileNow ? 'primary' : 'secondary' })) {
       g.setDisplay('mobile');
     }
     ui.text(ctx, mobileNow
       ? 'Full screen with thumb pads — rotate to landscape for the big view.'
-      : 'Framed window with keyboard controls, like the desktop build.', 290, 462, {
+      : 'Framed window with keyboard controls, like the desktop build.', 290, 508, {
       size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    ui.text(ctx, 'Space / Up: jump · hold in the air to slow the fall · Down: drop through a cloud · M: mute · Esc: pause', 290, 478, {
+    ui.text(ctx, 'Space jump · hold to glide · Down drop · Shift dash · M mute · Esc pause', 290, 524, {
       size: 9.5, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    if (ui.button(ctx, 330, 500, 300, 40, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
+    if (ui.button(ctx, 330, 538, 300, 40, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
     ctx.fillStyle = alpha(pal.accent, 0.5);
     rr(ctx, 290, 152, 380, 2, 1);
     ctx.fill();

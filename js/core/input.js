@@ -8,9 +8,10 @@ const DASH_KEYS = new Set(['Shift', 'k', 'K', 'x', 'X']);
 const PAUSE_KEYS = new Set(['Escape', 'p', 'P']);
 
 export class Input {
-  constructor(canvas, handOf) {
+  constructor(canvas, handOf, sizeOf) {
     this.canvas = canvas;
     this._handOf = typeof handOf === 'function' ? handOf : () => 'right';
+    this._sizeOf = typeof sizeOf === 'function' ? sizeOf : () => 'normal';
     this.keys = new Set();
     this.tapped = new Set();
     this.typed = [];
@@ -154,8 +155,13 @@ export class Input {
     return this._handOf() === 'left' ? 'left' : 'right';
   }
 
+  get padSize() {
+    const size = this._sizeOf();
+    return size === 'small' || size === 'large' ? size : 'normal';
+  }
+
   layout() {
-    return touchLayout(this.hand);
+    return touchLayout(this.hand, this.padSize);
   }
 
   _padAt(p) {

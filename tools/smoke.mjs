@@ -152,9 +152,13 @@ cycleWorld.bestY = (CYCLE.depth + 20) * 32;
 cycleWorld.update(1 / 60, game.player, game.handlers);
 assert.equal(cycleWorld.cycle, 1, 'second descent starts after a full set');
 assert.equal(cycleWorld.biome, 0, 'biomes restart with each descent');
+const openedGrace = cycleWorld.stormSpeed;
+cycleWorld.stormGrace = 0;
+cycleWorld.update(1 / 60, game.player, game.handlers);
+assert.ok(openedGrace < cycleWorld.stormSpeed * 0.5, 'a new descent stuns the storm');
 assert.ok(cycleWorld.stormSpeed > 100, 'storm speeds up with the set');
 assert.ok(cycleWorld.hazardScale > 1, 'hazards speed up with the set');
-note(`cycle check: descent ${cycleWorld.cycle + 1}, storm ${cycleWorld.stormSpeed.toFixed(0)}px/s, hazards x${cycleWorld.hazardScale.toFixed(2)}`);
+note(`cycle check: descent ${cycleWorld.cycle + 1}, storm opens at ${openedGrace.toFixed(0)}px/s, settles at ${cycleWorld.stormSpeed.toFixed(0)}px/s, hazards x${cycleWorld.hazardScale.toFixed(2)}`);
 
 const biome = BIOMES[2];
 assert.ok(biome, 'biome config exists');

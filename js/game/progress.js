@@ -15,7 +15,7 @@ export const freshProfileData = () => ({
   trails: ['ember'],
   char: 'pip',
   trail: 'ember',
-  settings: { music: 0, sfx: 0.7, shake: 1, reduce: 0, hand: 'right', audioVersion: 2 },
+  settings: { music: 0, sfx: 0.7, shake: 1, reduce: 0, hand: 'right', pad: 'normal', audioVersion: 2 },
   missions: [],
   missionDeck: [],
   missionCooldown: [],

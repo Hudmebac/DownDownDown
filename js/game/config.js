@@ -57,7 +57,7 @@ export const ECONOMY = {
 // begins: same world, new layouts, faster storm and hazards, depth keeps going.
 export const CYCLE = {
   depth: 3800,
-  speedStep: 0.12,
+  speedStep: 0.07,
   hazardStep: 0.1,
   maxStorm: 430,
   maxHazard: 1.8,
@@ -69,7 +69,11 @@ export const STORM = {
   speedPerMeter: 0.14,
   maxSpeed: 300,
   damageInterval: 1.3,
-  warnRange: 260,
+  warnRange: 340,
+  // A fresh descent opens with the storm briefly losing ground while you drop
+  // into the new layout, so the boundary is a breather rather than a shove.
+  cycleGrace: 3.2,
+  graceScale: 0.35,
 };
 
 // Living on a screen edge skips most of the layout, so the well pushes back:
@@ -102,17 +106,33 @@ const TOUCH_PADS = {
   jumpW: 140,
 };
 
+// Three sizes the player can pick in Settings. Every rig is pinned to its own
+// edge and grows inward, so even the big pads stay on the screen.
+export const PAD_SIZES = ['small', 'normal', 'large'];
+const PAD_SCALE = { small: 0.86, normal: 1, large: 1.22 };
+
+export function padScale(size) {
+  return PAD_SCALE[size] || PAD_SCALE.normal;
+}
+
 // `hand` is where the steering thumb lives: 'right' puts the pads on the left.
-export function touchLayout(hand = 'right') {
+export function touchLayout(hand = 'right', size = 'normal') {
   const b = TOUCH_PADS;
-  const y = VIEW.h - b.bottom - b.height;
-  const jumpX = VIEW.w - b.margin - b.jumpW;
-  const dashX = jumpX - b.gap - b.dashW;
+  const s = padScale(size);
+  const height = Math.round(b.height * s);
+  const steerW = Math.round(b.steerW * s);
+  const gap = Math.round(b.gap * s);
+  const dashW = Math.round(b.dashW * s);
+  const jumpW = Math.round(b.jumpW * s);
+  const inset = Math.round(14 * s);
+  const y = VIEW.h - b.bottom - height;
+  const jumpX = VIEW.w - b.margin - jumpW;
+  const dashX = jumpX - gap - dashW;
   const boxes = {
-    left: { x: b.margin, y, w: b.steerW, h: b.height },
-    right: { x: b.margin + b.steerW + b.gap, y, w: b.steerW, h: b.height },
-    dash: { x: dashX, y: y + 14, w: b.dashW, h: b.height - 28 },
-    jump: { x: jumpX, y, w: b.jumpW, h: b.height },
+    left: { x: b.margin, y, w: steerW, h: height },
+    right: { x: b.margin + steerW + gap, y, w: steerW, h: height },
+    dash: { x: dashX, y: y + inset, w: dashW, h: height - inset * 2 },
+    jump: { x: jumpX, y, w: jumpW, h: height },
   };
   if (hand === 'left') {
     // mirror the whole rig so a left-handed player steers with the right thumb
