@@ -1,4 +1,4 @@
-import { POWERUPS, STORM, TOUCH, VIEW } from './config.js';
+import { POWERUPS, STORM, VIEW, touchLayout } from './config.js';
 import { TAU, alpha, clamp, fmt, rr } from '../core/utils.js';
 import { COLORS, font } from './ui.js';
 import { drawIcon } from './entities.js';
@@ -157,46 +157,50 @@ export class HUD {
 
   renderTouch(ctx, pal) {
     const g = this.game;
-    const drawPad = (b, label, active) => {
-      ctx.fillStyle = active ? alpha(pal.accent, 0.3) : 'rgba(255,255,255,0.08)';
-      rr(ctx, b.x, b.y, b.w, b.h, 22);
+    const boxes = touchLayout(g.progress.settings.hand);
+    const touch = g.input.touch;
+    const pad = (b, active, radius = 26) => {
+      ctx.fillStyle = active ? alpha(pal.accent, 0.26) : 'rgba(255,255,255,0.07)';
+      rr(ctx, b.x, b.y, b.w, b.h, radius);
       ctx.fill();
-      ctx.strokeStyle = active ? alpha(pal.accent, 0.75) : 'rgba(255,255,255,0.2)';
-      ctx.lineWidth = 1.6;
-      rr(ctx, b.x, b.y, b.w, b.h, 22);
+      ctx.strokeStyle = active ? alpha(pal.accent, 0.8) : 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 1.8;
+      rr(ctx, b.x, b.y, b.w, b.h, radius);
       ctx.stroke();
+    };
+
+    // one thumb steers on its own pads, the other jumps and dashes
+    for (const name of ['left', 'right']) {
+      const b = boxes[name];
+      const held = touch[name];
+      pad(b, held, 24);
+      const dir = name === 'left' ? -1 : 1;
+      const cx = b.x + b.w / 2;
+      const cy = b.y + b.h / 2;
+      ctx.strokeStyle = alpha('#ffffff', held ? 0.95 : 0.6);
+      ctx.lineWidth = 4.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * -8, cy - 16);
+      ctx.lineTo(cx + dir * 12, cy);
+      ctx.lineTo(cx + dir * -8, cy + 16);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.lineJoin = 'miter';
+    }
+
+    const labelled = (b, text, size, active) => {
+      pad(b, active);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      g.ui.text(ctx, label, b.x + b.w / 2, b.y + b.h / 2, {
-        size: label.length > 2 ? 13 : 26, weight: 900, color: 'rgba(255,255,255,0.85)', align: 'center',
+      g.ui.text(ctx, text, b.x + b.w / 2, b.y + b.h / 2, {
+        size, weight: 900, color: active ? '#ffffff' : 'rgba(255,255,255,0.85)', align: 'center',
       });
       ctx.textBaseline = 'alphabetic';
       ctx.textAlign = 'left';
     };
-    const touch = g.input.touch;
-    const split = VIEW.w * TOUCH.split;
-
-    // movement is split: left half steers left, right half steers right
-    for (const dir of [-1, 1]) {
-      const held = dir < 0 ? touch.left : touch.right;
-      if (held) {
-        ctx.fillStyle = alpha(pal.accent, 0.08);
-        ctx.fillRect(dir < 0 ? 0 : split, 0, split, VIEW.h);
-      }
-      const cx = dir < 0 ? 56 : VIEW.w - 56;
-      const cy = VIEW.h * 0.6;
-      ctx.strokeStyle = alpha('#ffffff', held ? 0.6 : 0.2);
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(cx + dir * -12, cy - 15);
-      ctx.lineTo(cx + dir * 10, cy);
-      ctx.lineTo(cx + dir * -12, cy + 15);
-      ctx.stroke();
-      ctx.lineCap = 'butt';
-    }
-
-    drawPad(TOUCH.dash, 'DASH', touch.dash);
-    drawPad(TOUCH.jump, 'JUMP', touch.jump);
+    labelled(boxes.dash, 'DASH', 13, touch.dash);
+    labelled(boxes.jump, 'JUMP', 18, touch.jump);
   }
 }

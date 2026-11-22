@@ -1,6 +1,4 @@
-import { VIEW, TOUCH } from '../game/config.js';
-
-const SPLIT_X = () => VIEW.w * TOUCH.split;
+import { VIEW, touchLayout } from '../game/config.js';
 
 const JUMP_KEYS = new Set([' ', 'ArrowUp', 'w', 'W']);
 const LEFT_KEYS = new Set(['ArrowLeft', 'a', 'A']);
@@ -10,8 +8,9 @@ const DASH_KEYS = new Set(['Shift', 'k', 'K', 'x', 'X']);
 const PAUSE_KEYS = new Set(['Escape', 'p', 'P']);
 
 export class Input {
-  constructor(canvas) {
+  constructor(canvas, handOf) {
     this.canvas = canvas;
+    this._handOf = typeof handOf === 'function' ? handOf : () => 'right';
     this.keys = new Set();
     this.tapped = new Set();
     this.typed = [];
@@ -32,8 +31,7 @@ export class Input {
     this.textEnter = false;
     this.textCancel = false;
     this._pointers = new Map();
-    this._jumpPointers = new Set();
-    this._dashPointers = new Set();
+    this._pad = new Map();
     this._bind();
   }
 
@@ -121,8 +119,8 @@ export class Input {
       this.pointer.y = p.y;
       this.pointer.down = true;
       if (e.button === 0 || e.pointerType !== 'mouse') this.pointer.clicked = true;
-      if (this._hit('jump', p)) this._jumpPointers.add(e.pointerId);
-      if (this._hit('dash', p)) this._dashPointers.add(e.pointerId);
+      const pad = this._padAt(p);
+      if (pad) this._pad.set(e.pointerId, pad);
       this._syncTouch();
       e.preventDefault();
     }, { passive: false });
@@ -133,16 +131,15 @@ export class Input {
       this.pointer.y = p.y;
       if (this._pointers.has(e.pointerId)) {
         this._pointers.set(e.pointerId, p);
+        this._slideSteer(e.pointerId, p);
         this._syncTouch();
       }
     });
 
     const release = (e) => {
-      const wasJump = this._jumpPointers.delete(e.pointerId);
-      this._dashPointers.delete(e.pointerId);
+      this._pad.delete(e.pointerId);
       this._pointers.delete(e.pointerId);
       if (this._pointers.size === 0) this.pointer.down = false;
-      if (wasJump) this._syncTouch();
       this._syncTouch();
     };
     this.canvas.addEventListener('pointerup', release);
@@ -153,9 +150,30 @@ export class Input {
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  _hit(name, p) {
-    const b = TOUCH[name];
-    return p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+  get hand() {
+    return this._handOf() === 'left' ? 'left' : 'right';
+  }
+
+  layout() {
+    return touchLayout(this.hand);
+  }
+
+  _padAt(p) {
+    const boxes = this.layout();
+    for (const name of ['jump', 'dash', 'left', 'right']) {
+      const b = boxes[name];
+      if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) return name;
+    }
+    return null;
+  }
+
+  // A thumb on a steer pad keeps its grip while it slides across the two pads;
+  // nothing else can pull the direction away from it.
+  _slideSteer(id, p) {
+    const held = this._pad.get(id);
+    if (held !== 'left' && held !== 'right') return;
+    const next = this._padAt(p);
+    if (next === 'left' || next === 'right') this._pad.set(id, next);
   }
 
   _syncTouch() {
@@ -163,13 +181,12 @@ export class Input {
     let right = false;
     let jump = false;
     let dash = false;
-    const split = SPLIT_X();
-    for (const p of this._pointers.values()) {
-      // the buttons win over the movement halves so jump/dash never also steer
-      if (this._hit('jump', p)) jump = true;
-      else if (this._hit('dash', p)) dash = true;
-      else if (p.x < split) left = true;
-      else right = true;
+    for (const id of this._pointers.keys()) {
+      const pad = this._pad.get(id);
+      if (pad === 'jump') jump = true;
+      else if (pad === 'dash') dash = true;
+      else if (pad === 'left') left = true;
+      else if (pad === 'right') right = true;
     }
     const jumpPressed = jump && !this.touch.jump;
     const dashPressed = dash && !this.touch.dash;
@@ -276,9 +293,10 @@ export class Input {
     this.jumpPressed = false;
     this.dashPressed = false;
     this._pointers.clear();
-    this._jumpPointers.clear();
-    this._dashPointers.clear();
+    this._pad.clear();
     this.pointer.down = false;
     this.touch = { left: false, right: false, jump: false, dash: false };
+    this.touchJumpPressed = false;
+    this.touchDashPressed = false;
   }
 }

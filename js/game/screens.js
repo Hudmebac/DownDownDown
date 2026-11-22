@@ -253,7 +253,7 @@ export class Screens {
     ui.text(ctx, 'Controls on the left · the story of the Downward Kids on the right', 92, 108, {
       size: 10.5, weight: 500, color: COLORS.muted,
     });
-    ui.text(ctx, 'On a phone: hold the left half of the screen to steer left, the right half to steer right, and tap JUMP / DASH.', 92, 126, {
+    ui.text(ctx, 'On a phone: one thumb steers with the arrow pads, the other taps JUMP / DASH. Swap sides in Settings.', 92, 126, {
       size: 10, weight: 600, color: alpha(pal.accent, 0.85),
     });
 
@@ -737,60 +737,81 @@ export class Screens {
     ui.panel(ctx, 250, 86, 460, 488, { radius: 20 });
     ui.text(ctx, 'SETTINGS', 290, 134, { size: 24, weight: 900 });
 
-    ui.text(ctx, 'MUSIC', 290, 190, { size: 12, weight: 800, color: COLORS.muted });
-    const music = ui.slider(ctx, 470, 188, 200, s.music, 'music');
+    ui.text(ctx, 'MUSIC', 290, 184, { size: 12, weight: 800, color: COLORS.muted });
+    const music = ui.slider(ctx, 470, 182, 200, s.music, 'music');
     if (music !== null) {
       s.music = music;
       g.audio.setMusic(music);
       g.progress.save();
     }
 
-    ui.text(ctx, 'SOUND EFFECTS', 290, 238, { size: 12, weight: 800, color: COLORS.muted });
-    const sfx = ui.slider(ctx, 470, 236, 200, s.sfx, 'sfx');
+    ui.text(ctx, 'SOUND EFFECTS', 290, 228, { size: 12, weight: 800, color: COLORS.muted });
+    const sfx = ui.slider(ctx, 470, 226, 200, s.sfx, 'sfx');
     if (sfx !== null) {
       s.sfx = sfx;
       g.audio.setSfx(sfx);
       g.progress.save();
     }
 
-    ui.text(ctx, 'SCREEN SHAKE', 290, 290, { size: 12, weight: 800, color: COLORS.muted });
-    const shake = ui.toggle(ctx, 594, 278, !!s.shake, 'shake');
+    ui.text(ctx, 'SCREEN SHAKE', 290, 272, { size: 12, weight: 800, color: COLORS.muted });
+    const shake = ui.toggle(ctx, 594, 260, !!s.shake, 'shake');
     if (shake !== null) {
       s.shake = shake ? 1 : 0;
       g.progress.save();
       g.audio.sfx('ui');
     }
 
-    ui.text(ctx, 'REDUCED MOTION', 290, 342, { size: 12, weight: 800, color: COLORS.muted });
-    const reduce = ui.toggle(ctx, 594, 330, !!s.reduce, 'reduce');
+    ui.text(ctx, 'REDUCED MOTION', 290, 316, { size: 12, weight: 800, color: COLORS.muted });
+    const reduce = ui.toggle(ctx, 594, 304, !!s.reduce, 'reduce');
     if (reduce !== null) {
       s.reduce = reduce ? 1 : 0;
       g.progress.save();
       g.audio.sfx('ui');
     }
-    ui.text(ctx, 'Turns off screen shake and the speed lines at high fall speed.', 290, 362, {
+    ui.text(ctx, 'Turns off screen shake and the speed lines at high fall speed.', 290, 334, {
       size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
+    const setHand = (hand) => {
+      if ((s.hand === 'left' ? 'left' : 'right') === hand) return;
+      s.hand = hand;
+      g.progress.save();
+      g.audio.sfx('ui');
+      g.input.reset();
+    };
+    const rightHand = s.hand !== 'left';
+    ui.text(ctx, 'TOUCH CONTROLS', 290, 368, { size: 12, weight: 800, color: COLORS.muted });
+    if (ui.button(ctx, 470, 350, 104, 30, 'RIGHT HAND', { size: 9.5, id: 'hand-right', variant: rightHand ? 'primary' : 'secondary' })) {
+      setHand('right');
+    }
+    if (ui.button(ctx, 586, 350, 104, 30, 'LEFT HAND', { size: 9.5, id: 'hand-left', variant: rightHand ? 'secondary' : 'primary' })) {
+      setHand('left');
+    }
+    ui.text(ctx, rightHand
+      ? 'Steering thumb on the left, jump and dash on the right.'
+      : 'Steering thumb on the right, jump and dash on the left.', 290, 392, {
+      size: 9.5, weight: 500, color: 'rgba(238,244,255,0.45)',
+    });
+
     const mobileNow = g.mobileView;
-    ui.text(ctx, 'DISPLAY', 290, 400, { size: 12, weight: 800, color: COLORS.muted });
-    if (ui.button(ctx, 290, 412, 180, 34, 'DESKTOP', { size: 11, id: 'display-desktop', variant: mobileNow ? 'secondary' : 'primary' })) {
+    ui.text(ctx, 'DISPLAY', 290, 414, { size: 12, weight: 800, color: COLORS.muted });
+    if (ui.button(ctx, 290, 424, 180, 32, 'DESKTOP', { size: 11, id: 'display-desktop', variant: mobileNow ? 'secondary' : 'primary' })) {
       g.setDisplay('desktop');
     }
-    if (ui.button(ctx, 482, 412, 190, 34, 'MOBILE APP', { size: 11, id: 'display-mobile', variant: mobileNow ? 'primary' : 'secondary' })) {
+    if (ui.button(ctx, 482, 424, 190, 32, 'MOBILE APP', { size: 11, id: 'display-mobile', variant: mobileNow ? 'primary' : 'secondary' })) {
       g.setDisplay('mobile');
     }
     ui.text(ctx, mobileNow
       ? 'Full screen with thumb pads — rotate to landscape for the big view.'
-      : 'Framed window with keyboard controls, like the desktop build.', 290, 468, {
+      : 'Framed window with keyboard controls, like the desktop build.', 290, 462, {
       size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    ui.text(ctx, 'Space / Up: jump · hold in the air to slow the fall · Down: drop through a cloud · M: mute · Esc: pause', 290, 492, {
-      size: 10, weight: 500, color: 'rgba(238,244,255,0.45)',
+    ui.text(ctx, 'Space / Up: jump · hold in the air to slow the fall · Down: drop through a cloud · M: mute · Esc: pause', 290, 478, {
+      size: 9.5, weight: 500, color: 'rgba(238,244,255,0.45)',
     });
 
-    if (ui.button(ctx, 330, 512, 300, 42, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
+    if (ui.button(ctx, 330, 500, 300, 40, 'BACK', { size: 14, id: 'back-settings' })) g.setState('MENU');
     ctx.fillStyle = alpha(pal.accent, 0.5);
     rr(ctx, 290, 152, 380, 2, 1);
     ctx.fill();

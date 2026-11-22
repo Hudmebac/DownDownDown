@@ -90,12 +90,38 @@ export const EDGE = {
   cooldown: 5.5,
 };
 
-export const TOUCH = {
-  // movement is split: holding anywhere on the left half steers left, the right half steers right
-  split: 0.5,
-  dash: { x: 648, y: 456, w: 102, h: 102 },
-  jump: { x: 776, y: 424, w: 140, h: 140 },
+// One thumb steers on a pair of pads, the other jumps and dashes. Every pad sits
+// well inside the screen so a thumb never has to reach the bezel.
+const TOUCH_PADS = {
+  margin: 72,
+  bottom: 38,
+  height: 136,
+  steerW: 112,
+  gap: 12,
+  dashW: 110,
+  jumpW: 140,
 };
+
+// `hand` is where the steering thumb lives: 'right' puts the pads on the left.
+export function touchLayout(hand = 'right') {
+  const b = TOUCH_PADS;
+  const y = VIEW.h - b.bottom - b.height;
+  const jumpX = VIEW.w - b.margin - b.jumpW;
+  const dashX = jumpX - b.gap - b.dashW;
+  const boxes = {
+    left: { x: b.margin, y, w: b.steerW, h: b.height },
+    right: { x: b.margin + b.steerW + b.gap, y, w: b.steerW, h: b.height },
+    dash: { x: dashX, y: y + 14, w: b.dashW, h: b.height - 28 },
+    jump: { x: jumpX, y, w: b.jumpW, h: b.height },
+  };
+  if (hand === 'left') {
+    // mirror the whole rig so a left-handed player steers with the right thumb
+    for (const key of Object.keys(boxes)) {
+      boxes[key] = { ...boxes[key], x: VIEW.w - boxes[key].x - boxes[key].w };
+    }
+  }
+  return boxes;
+}
 
 export const BIOMES = [
   {
